@@ -2,8 +2,7 @@
 import { io } from "socket.io-client";
 import React, { EventHandler, useState } from 'react';
 import Markdown from "react-markdown";
-
-
+import { v4 as uuidv4 } from "uuid";
 import {
   Bird,
   Book,
@@ -74,12 +73,28 @@ function addNewlinesToMarkdown(markdown: string): string {
 
 
 
+
 export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [sqlQuery, setSqlQuery] = useState("");
   const [sqlLoading, setSqlLoading] = useState(false);
+
+  let session = uuidv4();
+
+
+
+
+ 
+
+
+
+
+
+
+
+
 
   const updateLastMessage = (message: string) => {
     setMessages((prevChats) => {
@@ -105,12 +120,16 @@ export default function Dashboard() {
     
 
     socket.on("connect", () => {
+
       socket.emit("billy", {
-        message: input,
+        message: {'session': session, 'message': input},
       });
 
       socket.on("billy", (data: any) => {
         console.log(data);
+
+        
+
 
         if (data.type == "query") {
           setSqlQuery(data.response);
@@ -161,7 +180,7 @@ export default function Dashboard() {
         </aside>
         <div className="flex flex-col">
           <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4">
-            <h1 className="text-xl font-semibold">Ask Bily</h1>
+            <h1 className="text-xl font-semibold">Ask Billy</h1>
             <Drawer>
               <DrawerTrigger asChild>
                 <Button className="md:hidden">
