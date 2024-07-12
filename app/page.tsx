@@ -1,6 +1,6 @@
 "use client";
 import { io } from "socket.io-client";
-import React, { EventHandler, useState } from 'react';
+import React, { EventHandler, useState, useRef, useEffect } from 'react';
 import Markdown from "react-markdown";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -76,10 +76,18 @@ function addNewlinesToMarkdown(markdown: string): string {
 
 export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
+
+  const [history, setHistory] = useState<string[]>([]);
+
+
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [sqlQuery, setSqlQuery] = useState("");
   const [sqlLoading, setSqlLoading] = useState(false);
+
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+
 
   let session = uuidv4();
 
@@ -107,51 +115,57 @@ export default function Dashboard() {
   };
 
   const getBillyResponse = async (input: string) => {
+    setHistory((prev) => [...prev, input]);
+
     const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
 
     setSqlLoading(true);
+    setIsAnswering(true);
 
-
-
-
-    setMessages([...messages, {role:"user", content:input}, { role: "assistant", content: "Thinking..." }]);
-
-
-    
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { role: "assistant", content: "Thinking..." },
+    ]);
 
     socket.on("connect", () => {
-
       socket.emit("billy", {
-        message: {'session': session, 'message': input},
+        message: { session: session, message: [...history, input].toString() },
       });
 
-      socket.on("billy", (data: any) => {
+      socket.on("billy", (data) => {
         console.log(data);
 
-        
-
-
-        if (data.type == "query") {
+        if (data.type === "query") {
           setSqlQuery(data.response);
           setSqlLoading(false);
         }
 
         if (data.status !== "done" && data.type === "answer") {
-                    setSqlLoading(false);
-
+          setSqlLoading(false);
           updateLastMessage(data.response);
           console.log(data.response);
         } else if (data.status === "done" && data.type === "answer") {
+          setIsAnswering(false);
           updateLastMessage(data.response);
-           setSqlLoading(false);
+          setHistory((prev) => [...prev, data.response]);
+          setSqlLoading(false);
           socket.disconnect();
         }
       });
     });
-
-    setIsAnswering(false);
-   
   };
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+    
+
+      messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+  , [messages]);
+
+   
+
 
   const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -168,26 +182,12 @@ export default function Dashboard() {
 
   return (
     <TooltipProvider>
-      <div className="grid h-screen w-full pl-[56px]">
-        <aside className="inset-y fixed  left-0 z-20 flex h-full flex-col border-r">
-          <div className="border-b p-2">
-            <Button aria-label="Home">
-              <Triangle className="size-5 fill-foreground" />
-            </Button>
-          </div>
-
-          <nav className="mt-auto grid gap-1 p-2"></nav>
-        </aside>
+      <div className="grid h-screen w-full ">
         <div className="flex flex-col">
           <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4">
             <h1 className="text-xl font-semibold">Ask Billy</h1>
             <Drawer>
-              <DrawerTrigger asChild>
-                <Button className="md:hidden">
-                  <Settings className="size-4" />
-                  <span className="sr-only">Settings</span>
-                </Button>
-              </DrawerTrigger>
+              <DrawerTrigger asChild></DrawerTrigger>
               <DrawerContent className="max-h-[80vh]">
                 <DrawerHeader>
                   <DrawerTitle>Configuration</DrawerTitle>
@@ -230,7 +230,10 @@ export default function Dashboard() {
                   <div className="grid gap-3">
                     <Label htmlFor="content">SQL Query</Label>
                     {sqlLoading ? (
-                      <div style={{minHeight:"30rem"}} className="w-ful flex justify-center items-center">
+                      <div
+                        style={{ minHeight: "30rem" }}
+                        className="w-ful flex justify-center items-center"
+                      >
                         <div role="status">
                           <svg
                             aria-hidden="true"
@@ -263,27 +266,30 @@ export default function Dashboard() {
                 </fieldset>
               </form>
             </div>
-            <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-muted/50 p-4 lg:col-span-2">
-              <div className="flex-1 overflow-y-auto p-4">
-                {messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className="my-2 p-3 rounded-lg shadow-sm bg-white text-black text-sm self-start text-left  break-words"
-                    style={{ overflowWrap: "break-word", maxWidth: "95%" }}
-                  >
-                    {msg.role === "user" ? (
-                      <Badge className="bg-primary text-xs text-white my-2">
-                        User
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-900 text-xs my-2 text-white">
-                        Billy
-                      </Badge>
-                    )}
-
-                    <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                  </div>
-                ))}
+            <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-muted/50 p-4 lg:col-span-2 overflow-y-scroll max-h-[90vh]">
+              <div className="flex-1 overflow-y-scroll p-4">
+                {messages.map((msg, index) => {
+                  const isLastMessage = index === messages.length - 1;
+                  return (
+                    <div
+                      key={index}
+                      ref={isLastMessage ? messagesEndRef : null}
+                      className="my-2 p-3 rounded-lg shadow-sm bg-white text-black text-sm self-start text-left break-words"
+                      style={{ overflowWrap: "break-word", maxWidth: "95%" }}
+                    >
+                      {msg.role === "user" ? (
+                        <Badge className="bg-primary text-xs text-white my-2">
+                          User
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-gray-900 text-xs my-2 text-white">
+                          Billy
+                        </Badge>
+                      )}
+                      <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+                    </div>
+                  );
+                })}
               </div>
 
               <form
@@ -301,8 +307,12 @@ export default function Dashboard() {
                   onChange={(e) => setInput(e.target.value)}
                 />
                 <div className="flex items-center p-3 pt-0">
-                  <Button type="submit" className="ml-auto gap-1.5">
-                    Send Message
+                  <Button
+                    type="submit"
+                    className="ml-auto gap-1.5"
+                    disabled={isAnswering}
+                  >
+                    Ask Billy
                     <CornerDownLeft className="size-3.5" />
                   </Button>
                 </div>
