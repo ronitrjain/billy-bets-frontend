@@ -21,7 +21,7 @@ import {
   Triangle,
   Turtle,
 } from "lucide-react";
-
+import { CheckIcon } from '@heroicons/react/outline';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,10 +49,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface Message { 
+interface Message {
   role: string;
   content: string;
 }
+
 function addNewlinesToMarkdown(markdown: string): string {
   const maxLineLength = 100;
   let result = "";
@@ -71,15 +72,9 @@ function addNewlinesToMarkdown(markdown: string): string {
   return result;
 }
 
-
-
-
 export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
-
   const [history, setHistory] = useState<string[]>([]);
-
-
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [sqlQuery, setSqlQuery] = useState("");
@@ -87,10 +82,7 @@ export default function Dashboard() {
 
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-
-
   let session = uuidv4();
-
 
   const updateLastMessage = (message: string) => {
     setMessages((prevChats) => {
@@ -100,6 +92,41 @@ export default function Dashboard() {
       }
       return updatedChats;
     });
+  };
+
+  const uploadQuery = async (correct: boolean, index: number) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}/store-query`;
+    const userMessageIndex = index - 1;
+
+    const data = {
+      query: messages[userMessageIndex].content,
+      answer: messages[index].content,
+      correct: correct,
+      session: session,
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Query stored successfully:', responseData);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Error storing query:', errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      return false;
+    }
   };
 
   const getBillyResponse = async (input: string) => {
@@ -145,15 +172,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (messagesEndRef.current) {
-    
-
-      messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }
-  , [messages]);
-
-   
-
+  }, [messages]);
 
   const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -165,6 +186,35 @@ export default function Dashboard() {
       setIsAnswering(true);
       getBillyResponse(input);
     }
+  };
+
+  const ApproveButton = ({ uploadQuery, index }) => {
+    const [isApproved, setIsApproved] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
+  
+    const handleApprove = async () => {
+      const success = await uploadQuery(true, index);
+      if (success) {
+        setIsApproved(true);
+        setIsSuccess(true);
+      }
+    };
+  
+    return (
+      <Button
+        onClick={handleApprove}
+        className={`mr-2 text-black bg-white hover:bg-gray-100 ${isApproved ? 'text-green-500' : ''}`}
+      >
+        {isApproved ? (
+          <>
+            <span>Response saved successfully</span> 
+            <CheckIcon className="w-5 h-5" />
+          </>
+        ) : (
+          'Approve'
+        )}
+      </Button>
+    );
   };
   
 
@@ -200,7 +250,6 @@ export default function Dashboard() {
                     </div>
                     <div className="grid gap-3">
                       <Label htmlFor="content">SQL Query</Label>
-
                       <Textarea id="content" placeholder="You are a..." />
                     </div>
                   </fieldset>
@@ -258,6 +307,8 @@ export default function Dashboard() {
               <div className="flex-1 overflow-y-scroll p-4">
                 {messages.map((msg, index) => {
                   const isLastMessage = index === messages.length - 1;
+                  const isCompletedResponse = msg.role === "assistant" && !isAnswering;
+
                   return (
                     <div
                       key={index}
@@ -275,6 +326,12 @@ export default function Dashboard() {
                         </Badge>
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+
+                      {isCompletedResponse && (
+                        <div className="mt-4 flex justify-end">
+                          <ApproveButton uploadQuery={uploadQuery} index={index} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
