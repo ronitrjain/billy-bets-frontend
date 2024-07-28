@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Markdown from "react-markdown";
 import { v4 as uuidv4 } from "uuid";
 import { CornerDownLeft } from "lucide-react";
-import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useSession, useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,10 @@ import {
 // Assume these are imported from separate files
 import Auth from '@/components/Auth';
 import ProfileAvatar from '@/components/ProfileAvatar';
+import { redirect } from "@/node_modules/next/navigation";
+
+
+
 
 interface Message { 
   role: string;
@@ -62,6 +66,7 @@ function addNewlinesToMarkdown(markdown: string): string {
 export default function Dashboard() {
   const session = useSession();
   const supabase = useSupabaseClient();
+  const user = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [input, setInput] = useState("");
@@ -178,6 +183,10 @@ export default function Dashboard() {
 
   if (!session) {
     return <Auth />;
+  }
+
+  if (user?.is_super_admin) { 
+    redirect('/admin')
   }
 
   return (

@@ -1,27 +1,11 @@
 "use client";
+
 import { io } from "socket.io-client";
-import React, { EventHandler, useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Markdown from "react-markdown";
 import { v4 as uuidv4 } from "uuid";
-import {
-  Bird,
-  Book,
-  Bot,
-  Code2,
-  CornerDownLeft,
-  LifeBuoy,
-  Mic,
-  Paperclip,
-  Rabbit,
-  Settings,
-  Settings2,
-  Share,
-  SquareTerminal,
-  SquareUser,
-  Triangle,
-  Turtle,
-} from "lucide-react";
-import { CheckIcon } from '@heroicons/react/outline';
+import { CornerDownLeft } from "lucide-react";
+import { useSession, useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,13 +28,18 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+// Assume these are imported from separate files
+import Auth from '@/components/Auth';
+import ProfileAvatar from '@/components/ProfileAvatar';
 import ResponseButtons from "@/components/ResponseButtons"
 
-interface Message {
+
+
+interface Message { 
   role: string;
   content: string;
 }
@@ -74,16 +63,19 @@ function addNewlinesToMarkdown(markdown: string): string {
 }
 
 export default function Dashboard() {
+  const session = useSession();
+  const supabase = useSupabaseClient();
+  const user = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [sqlQuery, setSqlQuery] = useState("");
   const [sqlLoading, setSqlLoading] = useState(false);
-
+  const [userName, setUserName] = useState("");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-  let session = uuidv4();
+  let sessionId = uuidv4();
 
   const updateLastMessage = (message: string) => {
     setMessages((prevChats) => {
@@ -95,8 +87,101 @@ export default function Dashboard() {
     });
   };
 
+  const getBillyResponse = async (input: string) => {
+    setHistory((prev) => [...prev, input]);
+
+    const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
+
+    setSqlLoading(true);
+    setIsAnswering(true);
+
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { role: "assistant", content: "Thinking..." },
+    ]);
+
+    socket.on("connect", () => {
+      socket.emit("billy", {
+        message: { session: sessionId, message: [...history, input].toString() },
+      });
+
+      socket.on("billy", (data) => {
+        console.log(data);
+
+        if (data.type === "query") {
+          setSqlQuery(data.response);
+          setSqlLoading(false);
+        }
+
+        if (data.status !== "done" && data.type === "answer") {
+          setSqlLoading(false);
+          updateLastMessage(data.response);
+          console.log(data.response);
+        } else if (data.status === "done" && data.type === "answer") {
+          setIsAnswering(false);
+          updateLastMessage(data.response);
+          setHistory((prev) => [...prev, data.response]);
+          setSqlLoading(false);
+          socket.disconnect();
+        }
+      });
+    });
+  };
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (session) {
+        const { data, error } = await supabase
+          .from('profiles') // Adjust table name if needed
+          .select('name')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data) {
+          setUserName(data.name);
+        } else {
+          console.error(error);
+        }
+      }
+    };
+
+    fetchUserData();
+  }, [session]);
+
+  const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (input.trim()) {
+      setMessages([...messages, { role: "user", content: input }]);
+      setInput("");
+      console.log("sending");
+      console.log(input);
+      setIsAnswering(true);
+      getBillyResponse(input);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim()) {
+        setMessages([...messages, { role: "user", content: input }]);
+        setInput("");
+        console.log("sending");
+        console.log(input);
+        setIsAnswering(true);
+        getBillyResponse(input);
+      }
+    }
+  };
+
   const uploadQuery = async (correct: boolean, index: number) => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/store-query`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
   
     const data = {
@@ -129,103 +214,19 @@ export default function Dashboard() {
       return false;
     }
   };
-  
-  const getBillyResponse = async (input: string) => {
-    setHistory((prev) => [...prev, input]);
 
-    const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
+  if (!session) {
+    return <Auth />;
+  }
 
-    setSqlLoading(true);
-    setIsAnswering(true);
-
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { role: "assistant", content: "Thinking..." },
-    ]);
-
-    socket.on("connect", () => {
-      socket.emit("billy", {
-        message: { session: session, message: [...history, input].toString() },
-      });
-
-      socket.on("billy", (data) => {
-        console.log(data);
-
-        if (data.type === "query") {
-          setSqlQuery(data.response);
-          setSqlLoading(false);
-        }
-
-        if (data.status !== "done" && data.type === "answer") {
-          setSqlLoading(false);
-          updateLastMessage(data.response);
-          console.log(data.response);
-        } else if (data.status === "done" && data.type === "answer") {
-          setIsAnswering(false);
-          updateLastMessage(data.response);
-          setHistory((prev) => [...prev, data.response]);
-          setSqlLoading(false);
-          socket.disconnect();
-        }
-      });
-    });
-  };
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (input.trim()) {
-      setMessages([...messages, { role: "user", content: input }]);
-      setInput("");
-      console.log("sending");
-      console.log(input);
-      setIsAnswering(true);
-      getBillyResponse(input);
-    }
-  };
-
-
-  const ApproveButton = ({ uploadQuery, index }) => {
-    const [isApproved, setIsApproved] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
-  
-    const handleApprove = async () => {
-      const success = await uploadQuery(true, index);
-      if (success) {
-        setIsApproved(true);
-        setIsSuccess(true);
-      }
-    };
-  
-    return (
-      <Button
-        onClick={handleApprove}
-        className={`mr-2 text-black bg-white hover:bg-gray-100 ${isApproved ? 'text-green-500' : ''}`}
-      >
-        {isApproved ? (
-          <>
-            <span>Response saved successfully</span> 
-            <CheckIcon className="w-5 h-5" />
-          </>
-        ) : (
-          'Approve'
-        )}
-      </Button>
-    );
-  };
-  
 
   return (
     <TooltipProvider>
       <div className="grid h-screen w-full ">
         <div className="flex flex-col">
-          <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4">
+          <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4 justify-between">
             <h1 className="text-xl font-semibold">Ask Billy</h1>
+            <ProfileAvatar name={userName} />
             <Drawer>
               <DrawerTrigger asChild></DrawerTrigger>
               <DrawerContent className="max-h-[80vh]">
@@ -310,7 +311,6 @@ export default function Dashboard() {
                 {messages.map((msg, index) => {
                   const isLastMessage = index === messages.length - 1;
                   const isCompletedResponse = msg.role === "assistant" && !isAnswering;
-
                   return (
                     <div
                       key={index}
@@ -326,14 +326,16 @@ export default function Dashboard() {
                         <Badge className="bg-gray-900 text-xs my-2 text-white">
                           Billy
                         </Badge>
+
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-
                       {isCompletedResponse && (
                         <div className="mt-4 flex justify-end">
                           <ResponseButtons uploadQuery={uploadQuery} index={index} />
                         </div>
                       )}
+                      
+                    
                     </div>
                   );
                 })}
@@ -352,6 +354,7 @@ export default function Dashboard() {
                   className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
                 />
                 <div className="flex items-center p-3 pt-0">
                   <Button

@@ -1,15 +1,19 @@
 'use client';
-import React, {useState} from 'react'
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { CheckIcon } from '@heroicons/react/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface ResponseButtonsProps {
+  uploadQuery: (correct: boolean, index: number) => Promise<boolean>;
+  index: number;
+}
 
-const ResponseButtons = ({ uploadQuery, index }) => {
-  const [responseStatus, setResponseStatus] = useState(null);
+const ResponseButtons: React.FC<ResponseButtonsProps> = ({ uploadQuery, index }) => {
+  const [responseStatus, setResponseStatus] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleResponse = async (isApproved) => {
+  const handleResponse = async (isApproved: boolean) => {
     setIsLoading(true);
     const newStatus = isApproved ? 'approved' : 'disapproved';
     const success = await uploadQuery(isApproved, index);
@@ -30,8 +34,8 @@ const ResponseButtons = ({ uploadQuery, index }) => {
             transition={{ duration: 0.3 }}
             className={`mr-2 ${responseStatus === 'approved' ? 'text-green-500' : 'text-red-500'}`}
           >
-            {responseStatus === 'approved' 
-              ? 'Response saved successfully' 
+            {responseStatus === 'approved'
+              ? 'Response saved successfully'
               : 'Response saved as disapproved'}
           </motion.span>
         )}
@@ -55,5 +59,4 @@ const ResponseButtons = ({ uploadQuery, index }) => {
   );
 };
 
-
-export default ResponseButtons
+export default ResponseButtons;
