@@ -48,6 +48,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import ResponseButtons from "@/components/ResponseButtons"
 
 interface Message {
   role: string;
@@ -97,14 +98,14 @@ export default function Dashboard() {
   const uploadQuery = async (correct: boolean, index: number) => {
     const url = `${process.env.NEXT_PUBLIC_API_URL}/store-query`;
     const userMessageIndex = index - 1;
-
+  
     const data = {
       query: messages[userMessageIndex].content,
       answer: messages[index].content,
       correct: correct,
       session: session,
     };
-
+  
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -113,14 +114,14 @@ export default function Dashboard() {
         },
         body: JSON.stringify(data),
       });
-
+  
       if (response.ok) {
         const responseData = await response.json();
-        console.log('Query stored successfully:', responseData);
+        console.log('Query stored/updated successfully:', responseData);
         return true;
       } else {
         const errorData = await response.json();
-        console.error('Error storing query:', errorData);
+        console.error('Error storing/updating query:', errorData);
         return false;
       }
     } catch (error) {
@@ -128,7 +129,7 @@ export default function Dashboard() {
       return false;
     }
   };
-
+  
   const getBillyResponse = async (input: string) => {
     setHistory((prev) => [...prev, input]);
 
@@ -187,6 +188,7 @@ export default function Dashboard() {
       getBillyResponse(input);
     }
   };
+
 
   const ApproveButton = ({ uploadQuery, index }) => {
     const [isApproved, setIsApproved] = useState(false);
@@ -329,7 +331,7 @@ export default function Dashboard() {
 
                       {isCompletedResponse && (
                         <div className="mt-4 flex justify-end">
-                          <ApproveButton uploadQuery={uploadQuery} index={index} />
+                          <ResponseButtons uploadQuery={uploadQuery} index={index} />
                         </div>
                       )}
                     </div>
