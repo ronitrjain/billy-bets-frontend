@@ -28,7 +28,10 @@ function AvatarButton() {
 
    return (
       <Avatar>
-        <AvatarFallback>{user?.email[0].toUpperCase()}</AvatarFallback>
+        <AvatarFallback>{
+          user?.email ? user.email[0].toUpperCase() : 'B'
+        }
+        </AvatarFallback>
       </Avatar>
     )
   }
