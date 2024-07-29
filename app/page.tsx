@@ -329,7 +329,6 @@ export default function Dashboard() {
 
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                      {console.log("user", user.app_metadata.role)}
                       {user && user.app_metadata.role == "super-admin" && isCompletedResponse && (
                         <div className="mt-4 flex justify-end">
                           <ResponseButtons uploadQuery={uploadQuery} index={index} />
