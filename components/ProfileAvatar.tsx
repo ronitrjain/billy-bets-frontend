@@ -21,17 +21,20 @@ import {
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react'
 
 
-  
+
 function AvatarButton() {
   const user = useUser()
 
 
-   return (
+  return (
       <Avatar>
-        <AvatarFallback>{user?.email[0].toUpperCase()}</AvatarFallback>
+        <AvatarFallback>{
+          user?.email ? user.email[0].toUpperCase() : 'B'
+        }
+        </AvatarFallback>
       </Avatar>
     )
-  }
+}
 
 export default function ProfileAvatar() {
   const supabase = useSupabaseClient()
@@ -57,5 +60,6 @@ export default function ProfileAvatar() {
         </DropdownMenuContent>
       </DropdownMenu>
     )
-    }
+}
+
   

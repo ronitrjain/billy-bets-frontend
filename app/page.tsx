@@ -35,8 +35,7 @@ import {
 // Assume these are imported from separate files
 import Auth from '@/components/Auth';
 import ProfileAvatar from '@/components/ProfileAvatar';
-import { redirect } from "@/node_modules/next/navigation";
-
+import ResponseButtons from "@/components/ResponseButtons"
 
 
 
@@ -181,13 +180,45 @@ export default function Dashboard() {
     }
   };
 
+  const uploadQuery = async (correct: boolean, index: number) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
+    const userMessageIndex = index - 1;
+  
+    const data = {
+      query: messages[userMessageIndex].content,
+      answer: messages[index].content,
+      correct: correct,
+      session: session,
+    };
+  
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+  
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Query stored/updated successfully:', responseData);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Error storing/updating query:', errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      return false;
+    }
+  };
+
   if (!session) {
     return <Auth />;
   }
 
-  if (user?.is_super_admin) { 
-    redirect('/admin')
-  }
 
   return (
     <TooltipProvider>
@@ -195,7 +226,7 @@ export default function Dashboard() {
         <div className="flex flex-col">
           <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4 justify-between">
             <h1 className="text-xl font-semibold">Ask Billy</h1>
-            <ProfileAvatar name={userName} />
+            <ProfileAvatar />
             <Drawer>
               <DrawerTrigger asChild></DrawerTrigger>
               <DrawerContent className="max-h-[80vh]">
@@ -279,6 +310,7 @@ export default function Dashboard() {
               <div className="flex-1 overflow-y-scroll p-4">
                 {messages.map((msg, index) => {
                   const isLastMessage = index === messages.length - 1;
+                  const isCompletedResponse = msg.role === "assistant" && !isAnswering;
                   return (
                     <div
                       key={index}
@@ -294,8 +326,16 @@ export default function Dashboard() {
                         <Badge className="bg-gray-900 text-xs my-2 text-white">
                           Billy
                         </Badge>
+
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+                      {user && user.app_metadata.role == "super-admin" && isCompletedResponse && (
+                        <div className="mt-4 flex justify-end">
+                          <ResponseButtons uploadQuery={uploadQuery} index={index} />
+                        </div>
+                      )}
+                
+                  
                     </div>
                   );
                 })}
