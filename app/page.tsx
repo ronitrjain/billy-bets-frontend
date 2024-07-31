@@ -73,6 +73,7 @@ export default function Dashboard() {
   const [sqlQuery, setSqlQuery] = useState("");
   const [sqlLoading, setSqlLoading] = useState(false);
   const [userName, setUserName] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<{[key: number]: string | null}>({});
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   let sessionId = uuidv4();
@@ -184,11 +185,15 @@ export default function Dashboard() {
     const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
   
+    console.log("Question", messages[userMessageIndex].content)
+  
     const data = {
-      query: messages[userMessageIndex].content,
+      question: messages[userMessageIndex].content,
       answer: messages[index].content,
-      correct: correct,
-      session: session,
+      correct: correct.toString(),
+      category: "general",
+      sql: sqlQuery,
+      user_id: user?.id
     };
   
     try {
@@ -329,11 +334,18 @@ export default function Dashboard() {
 
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+                      
+                      
                       {user && user.app_metadata.role == "super-admin" && isCompletedResponse && (
                         <div className="mt-4 flex justify-end">
-                          <ResponseButtons uploadQuery={uploadQuery} index={index} />
-                        </div>
-                      )}
+                          <ResponseButtons 
+                            uploadQuery={uploadQuery} 
+                            index={index}
+                            feedbackStatus={feedbackStatus}
+                            setFeedbackStatus={setFeedbackStatus}
+                          />
+                      </div>
+)}
                 
                   
                     </div>
