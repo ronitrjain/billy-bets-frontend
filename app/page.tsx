@@ -91,7 +91,7 @@ export default function Dashboard() {
   const getBillyResponse = async (input: string) => {
     setHistory((prev) => [...prev, input]);
 
-    const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
+    const socket = io(`${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
 
     setSqlLoading(true);
     setIsAnswering(true);
@@ -185,7 +185,6 @@ export default function Dashboard() {
     const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
   
-    console.log("Question", messages[userMessageIndex].content)
     
     const data = {
       question: messages[userMessageIndex].content,
@@ -300,6 +299,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                     ) : (
+                      
                       <Textarea
                         id="content"
                         readOnly
