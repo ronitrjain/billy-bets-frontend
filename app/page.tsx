@@ -186,7 +186,7 @@ export default function Dashboard() {
     const userMessageIndex = index - 1;
   
     console.log("Question", messages[userMessageIndex].content)
-  
+    
     const data = {
       question: messages[userMessageIndex].content,
       answer: messages[index].content,
@@ -195,7 +195,7 @@ export default function Dashboard() {
       sql: sqlQuery,
       user_id: user?.id
     };
-  
+    console.log("Data", data)
     try {
       const response = await fetch(url, {
         method: 'POST',
