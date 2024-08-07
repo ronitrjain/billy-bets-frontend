@@ -91,7 +91,7 @@ export default function Dashboard() {
   const getBillyResponse = async (input: string) => {
     setHistory((prev) => [...prev, input]);
 
-    const socket = io(`${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
+    const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
 
     setSqlLoading(true);
     setIsAnswering(true);
@@ -184,7 +184,8 @@ export default function Dashboard() {
   const uploadQuery = async (correct: boolean, index: number) => {
     const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
-  
+    
+    
     
     const data = {
       question: messages[userMessageIndex].content,
