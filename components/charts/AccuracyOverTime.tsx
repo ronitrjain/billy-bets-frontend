@@ -27,10 +27,11 @@ type QueryData = {
 }
 
 type ChartDataPoint = {
-  date: string;
-  [bucket: string]: number;
-  total: number;
+  date: string; // Keep date as string
+  total: number; // Total is a number
+  [bucket: string]: number | string; // Allow dynamic properties as number or string
 }
+
 
 export default function AccuracyOverTime() {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])

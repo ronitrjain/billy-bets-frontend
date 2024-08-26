@@ -27,8 +27,20 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
+type UserQueriesByDay = {
+  [date: string]: {
+    [userId: string]: number;
+  };
+}
+
+type ChartDataPoint = {
+  date: string;
+  activeUsers: number;
+}
+
+
 function ActiveUsers() {
-  const [chartData, setChartData] = useState([])
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [trend, setTrend] = useState(0)
   const supabase = useSupabaseClient()
 
@@ -47,7 +59,7 @@ function ActiveUsers() {
         return
       }
 
-      const userQueriesByDay = {}
+      const userQueriesByDay: UserQueriesByDay = {}
       queries.forEach(query => {
         const date = new Date(query.created_at).toISOString().split('T')[0]
         if (!userQueriesByDay[date]) userQueriesByDay[date] = {}
@@ -58,7 +70,7 @@ function ActiveUsers() {
       const chartData = Object.entries(userQueriesByDay).map(([date, users]) => ({
         date,
         activeUsers: Object.values(users).filter(count => count > 5).length
-      })).sort((a, b) => new Date(a.date) - new Date(b.date))
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
       setChartData(chartData)
 
@@ -102,12 +114,13 @@ function ActiveUsers() {
               tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             />
             <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              domain={[0, 'auto']}
-              tickFormatter={(value) => Math.round(value)}
-            />
+  tickLine={false}
+  axisLine={false}
+  tickMargin={8}
+  domain={[0, 'auto']}
+  tickFormatter={(value: number) => value.toFixed(0)} // Convert number to string
+/>
+
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent />}

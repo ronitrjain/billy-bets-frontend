@@ -1,60 +1,33 @@
 "use client";
-import Link from "next/link"
 import { useEffect, useState } from "react"
-import { createClient } from '@supabase/supabase-js'
 import {
   Activity,
-  ArrowUpRight,
-  CircleUser,
   CreditCard,
   DollarSign,
-  Menu,
-  Package2,
-  Search,
   Users,
 } from "lucide-react"
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import AccuracyOverTime from "@/components/charts/AccuracyOverTime"
 import ActiveUsers from "@/components/charts/ActiveUsers"
-import UsersOverTime from "@/components/charts/UsersOverTime"
-import QuestionType from "@/components/charts/QuestionType"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 
+interface Session {
+  id: number;
+  user_id: string;
+  created_at: string;
+  session_start: string;
+  session_end: string;
+  duration: string;
+}
 
 
 function Dashboard() {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [totalPrompts, setTotalPrompts] = useState(0);
   const [promptsPerDay, setPromptsPerDay] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -67,7 +40,7 @@ function Dashboard() {
       if (sessionError) {
         console.error('Error fetching session data:', sessionError);
       } else {
-        setSessions(sessionData);
+        setSessions(sessionData as Session[] );
       }
     };
 
@@ -94,9 +67,9 @@ function Dashboard() {
   const totalSessions = sessions.length;
   const totalUsers = new Set(sessions.map(session => session.user_id)).size;
 
-  const avgSessionTime = sessions.reduce((total, session) => {
+  const avgSessionTime = sessions.reduce((total: number, session) => {
     if (session.session_end && session.session_start) {
-      return total + (new Date(session.session_end) - new Date(session.session_start));
+      return total + (new Date(session.session_end).getTime() - new Date(session.session_start).getTime());
     }
     return total;
   }, 0) / totalSessions;
