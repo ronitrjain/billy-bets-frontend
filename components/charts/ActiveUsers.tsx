@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import { TrendingUp } from "lucide-react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
 import {
   Card,
@@ -17,90 +19,128 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-]
 
-const chartConfig = {
-  desktop: {
-    label: "Desktop",
-    color: "hsl(var(--chart-1))",
-  },
-  mobile: {
-    label: "Mobile",
-    color: "hsl(var(--chart-2))",
-  },
-} satisfies ChartConfig
+type QueryData = {
+  user_id: string;
+  created_at: string;
+}
 
-function ActiveUsers() {
+type ChartDataPoint = {
+  date: string;
+  lastWeek: number;
+  lastTwoWeeks: number;
+  lastMonth: number;
+}
+
+const chartConfig: ChartConfig = {
+  lastWeek: {
+    label: "Last Week",
+    color: "hsl(141.9, 69.2%, 58%)",
+  },
+  lastTwoWeeks: {
+    label: "Last 2 Weeks",
+    color: "hsl(198.4, 93.2%, 59.6%)",
+  },
+  lastMonth: {
+    label: "Last Month",
+    color: "hsl(270, 95.2%, 75.3%)",
+  },
+}
+
+export default function ActiveUsers() {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
+  const [trend, setTrend] = useState<number>(0)
+  const supabase = useSupabaseClient()
+  useEffect(() => {
+    async function fetchData() {
+      const { data: queries } = await supabase.from('store-queries').select('user_id, created_at') as { data: QueryData[] }
+
+      const now = new Date()
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000)
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+      const dailyData: Record<string, { lastWeek: Set<string>, lastTwoWeeks: Set<string>, lastMonth: Set<string> }> = {}
+
+      queries.forEach(query => {
+        const date = new Date(query.created_at)
+        console.log("Dates", date)
+        const dateString = date.toISOString().split('T')[0]
+
+        if (!dailyData[dateString]) {
+          dailyData[dateString] = { lastWeek: new Set(), lastTwoWeeks: new Set(), lastMonth: new Set() }
+        }
+
+        if (date >= oneWeekAgo) dailyData[dateString].lastWeek.add(query.user_id)
+        if (date >= twoWeeksAgo) dailyData[dateString].lastTwoWeeks.add(query.user_id)
+        if (date >= oneMonthAgo) dailyData[dateString].lastMonth.add(query.user_id)
+      })
+
+      const processedData: ChartDataPoint[] = Object.entries(dailyData)
+        .map(([date, data]) => ({
+          date,
+          lastWeek: data.lastWeek.size > 5 ? data.lastWeek.size : 0,
+          lastTwoWeeks: data.lastTwoWeeks.size > 5 ? data.lastTwoWeeks.size : 0,
+          lastMonth: data.lastMonth.size > 5 ? data.lastMonth.size : 0,
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+      setChartData(processedData)
+
+      console.log('Active users data:', processedData)
+
+      // Calculate trend
+      if (processedData.length >= 2) {
+        const lastDay = processedData[processedData.length - 1].lastWeek
+        const previousDay = processedData[processedData.length - 2].lastWeek
+        setTrend(((lastDay - previousDay) / previousDay) * 100)
+      }
+    }
+
+    fetchData()
+  }, [])
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Area Chart - Stacked</CardTitle>
-        <CardDescription>
-          Showing total visitors for the last 6 months
-        </CardDescription>
+        <CardTitle>Active Users</CardTitle>
+        <CardDescription>Last 30 days</CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <AreaChart
-            accessibilityLayer
-            data={chartData}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
-          >
+          <BarChart accessibilityLayer data={chartData}>
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="month"
+              dataKey="date"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            />
+            <YAxis
               tickLine={false}
               axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) => value.slice(0, 3)}
+              tickMargin={10}
             />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="dot" />}
+              content={<ChartTooltipContent indicator="dashed" />}
             />
-            <Area
-              dataKey="mobile"
-              type="natural"
-              fill="var(--color-mobile)"
-              fillOpacity={0.4}
-              stroke="var(--color-mobile)"
-              stackId="a"
-            />
-            <Area
-              dataKey="desktop"
-              type="natural"
-              fill="var(--color-desktop)"
-              fillOpacity={0.4}
-              stroke="var(--color-desktop)"
-              stackId="a"
-            />
-          </AreaChart>
+            <Bar dataKey="lastWeek" fill={chartConfig.lastWeek.color} radius={4} />
+            <Bar dataKey="lastTwoWeeks" fill={chartConfig.lastTwoWeeks.color} radius={4} />
+            <Bar dataKey="lastMonth" fill={chartConfig.lastMonth.color} radius={4} />
+          </BarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter>
-        <div className="flex w-full items-start gap-2 text-sm">
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2 font-medium leading-none">
-              Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-            </div>
-            <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              January - June 2024
-            </div>
-          </div>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          {trend > 0 ? "Trending up" : "Trending down"} by {Math.abs(trend).toFixed(1)}% from previous day
+          <TrendingUp className={`h-4 w-4 ${trend < 0 ? 'rotate-180' : ''}`} />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing active users (>5 entries) for the last 1 month, 2 weeks, 1 week
         </div>
       </CardFooter>
     </Card>
   )
 }
-
-export default ActiveUsers

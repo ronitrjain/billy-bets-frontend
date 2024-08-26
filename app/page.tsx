@@ -5,7 +5,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Markdown from "react-markdown";
 import { v4 as uuidv4 } from "uuid";
 import { CornerDownLeft } from "lucide-react";
-import { useSession, useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useSession, useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,8 +35,7 @@ import {
 // Assume these are imported from separate files
 import Auth from '@/components/Auth';
 import ProfileAvatar from '@/components/ProfileAvatar';
-import ResponseButtons from "@/components/ResponseButtons"
-
+import ResponseButtons from "@/components/ResponseButtons";
 
 
 interface Message { 
@@ -64,6 +63,8 @@ function addNewlinesToMarkdown(markdown: string): string {
 
 export default function Dashboard() {
   const session = useSession();
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const supabase = useSupabaseClient();
   const user = useUser();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -75,8 +76,6 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<{[key: number]: string | null}>({});
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
-
-  let sessionId = uuidv4();
 
   const updateLastMessage = (message: string) => {
     setMessages((prevChats) => {
@@ -105,6 +104,7 @@ export default function Dashboard() {
       socket.emit("billy", {
         message: { session: sessionId, message: [...history, input].toString() },
       });
+      console.log("input", input);
 
       socket.on("billy", (data) => {
         console.log(data);
@@ -130,30 +130,96 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (session && !sessionStarted) {
+      console.log("Creating a new session", session);
+      const newSessionId = uuidv4();  // Generate a new session ID
+      const startTime = new Date().toISOString();  // Get current time
+
+      // Store the session start time in Supabase
+      const logSessionStart = async () => {
+        const { error } = await supabase.from('user_sessions').insert({
+          user_id: session.user.id,
+          id: newSessionId,
+          session_start: startTime,
+          // End time will be null initially
+        });
+
+        if (error) {
+          console.error('Error inserting session start time:', error);
+        } else { 
+          console.log("Session started");
+          setSessionId(newSessionId);  // Store the session ID in state
+          setSessionStarted(true);  // Mark the session as started
+        }
+      };
+      
+      logSessionStart();
+    }
+  }, [session, sessionStarted, supabase]);
+
+  useEffect(() => {
+    const endSession = async () => {
+      if (sessionId && sessionStarted) {
+        const endTime = new Date();
+        const endTimeString = endTime.toISOString();
+        
+        // Update the session with end time and calculate duration
+        const { error } = await supabase
+          .from('user_sessions')
+          .update({ 
+            session_end: endTimeString,
+            duration: session.session_start - session.s
+          })
+          .eq('id', sessionId);
+  
+        if (error) {
+          console.error('Error updating session end time:', error);
+        } else {
+          console.log('Session ended successfully');
+          setSessionStarted(false);  // Reset session state
+        }
+      }
+    };
+  
+    const handleBeforeUnload = () => {
+      endSession();
+    };
+  
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      endSession(); // Ensure it gets called when component unmounts
+    };
+  }, [sessionId, sessionStarted, supabase]);
+
+  useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
   useEffect(() => {
     const fetchUserData = async () => {
       if (session) {
-        const { data, error } = await supabase
-          .from('profiles') // Adjust table name if needed
-          .select('name')
+        // First, fetch the user's email from the auth.users table
+        const { data: authData, error: authError } = await supabase
+          .from('auth.Users')
+          .select('email')
           .eq('id', session.user.id)
           .single();
-
-        if (data) {
-          setUserName(data.name);
-        } else {
-          console.error(error);
+  
+        if (authError) {
+          console.error('Error fetching auth data:', authError);
+          return;
         }
+
+        setUserName(authData?.user.name);
       }
     };
-
+  
     fetchUserData();
-  }, [session]);
+  }, [session, supabase]);
 
   const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -184,8 +250,6 @@ export default function Dashboard() {
   const uploadQuery = async (correct: boolean, index: number) => {
     const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
-    
-    
     
     const data = {
       question: messages[userMessageIndex].content,
