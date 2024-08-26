@@ -88,6 +88,46 @@ export default function Dashboard() {
     });
   };
 
+  const uploadQuery = async (correct: boolean, index: number) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
+    const userMessageIndex = index - 1;
+    
+    
+    
+    const data = {
+      question: messages[userMessageIndex].content,
+      answer: messages[index].content,
+      correct: correct.toString(),
+      category: "general",
+      sql: sqlQuery,
+      user_id: user?.id
+    };
+    console.log("Data", data)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+  
+      if (response.ok) {
+        const responseData = await response.json();
+        console.log('Query stored/updated successfully:', responseData);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('Error storing/updating query:', errorData);
+        return false;
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      return false;
+    }
+  };
+
+
   const getBillyResponse = async (input: string) => {
     setHistory((prev) => [...prev, input]);
 
@@ -181,44 +221,7 @@ export default function Dashboard() {
     }
   };
 
-  const uploadQuery = async (correct: boolean, index: number) => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
-    const userMessageIndex = index - 1;
-    
-    
-    
-    const data = {
-      question: messages[userMessageIndex].content,
-      answer: messages[index].content,
-      correct: correct.toString(),
-      category: "general",
-      sql: sqlQuery,
-      user_id: user?.id
-    };
-    console.log("Data", data)
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-  
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('Query stored/updated successfully:', responseData);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error('Error storing/updating query:', errorData);
-        return false;
-      }
-    } catch (error) {
-      console.error('Network error:', error);
-      return false;
-    }
-  };
+
 
   if (!session) {
     return <Auth />;
