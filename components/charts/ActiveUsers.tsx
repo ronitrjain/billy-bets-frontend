@@ -1,7 +1,9 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { TrendingUp } from "lucide-react"
-import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, Legend } from "recharts"
+import { useSupabaseClient } from "@supabase/auth-helpers-react"
 
 import {
   Card,
@@ -17,86 +19,130 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-const chartData = [
-  { month: "January", desktop: 186, mobile: 80 },
-  { month: "February", desktop: 305, mobile: 200 },
-  { month: "March", desktop: 237, mobile: 120 },
-  { month: "April", desktop: 73, mobile: 190 },
-  { month: "May", desktop: 209, mobile: 130 },
-  { month: "June", desktop: 214, mobile: 140 },
-]
 
 const chartConfig = {
-  desktop: {
-    label: "Desktop",
+  activeUsers: {
+    label: "Active Users",
     color: "hsl(var(--chart-1))",
-  },
-  mobile: {
-    label: "Mobile",
-    color: "hsl(var(--chart-2))",
   },
 } satisfies ChartConfig
 
+type UserQueriesByDay = {
+  [date: string]: {
+    [userId: string]: number;
+  };
+}
+
+type ChartDataPoint = {
+  date: string;
+  activeUsers: number;
+}
+
+
 function ActiveUsers() {
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([])
+  const [trend, setTrend] = useState(0)
+  const supabase = useSupabaseClient()
+
+  useEffect(() => {
+    async function fetchData() {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      const { data: queries, error } = await supabase
+        .from('store-queries')
+        .select('user_id, created_at')
+        .gte('created_at', sevenDaysAgo.toISOString())
+
+      if (error) {
+        console.error("Error fetching data:", error)
+        return
+      }
+
+      const userQueriesByDay: UserQueriesByDay = {}
+      queries.forEach(query => {
+        const date = new Date(query.created_at).toISOString().split('T')[0]
+        if (!userQueriesByDay[date]) userQueriesByDay[date] = {}
+        if (!userQueriesByDay[date][query.user_id]) userQueriesByDay[date][query.user_id] = 0
+        userQueriesByDay[date][query.user_id]++
+      })
+
+      const chartData = Object.entries(userQueriesByDay).map(([date, users]) => ({
+        date,
+        activeUsers: Object.values(users).filter(count => count > 5).length
+      })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+
+      setChartData(chartData)
+
+      // Calculate trend
+      if (chartData.length >= 2) {
+        const lastDay = chartData[chartData.length - 1].activeUsers
+        const previousDay = chartData[chartData.length - 2].activeUsers
+        setTrend(((lastDay - previousDay) / previousDay) * 100)
+      }
+    }
+
+    fetchData()
+  }, [supabase])
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Area Chart - Stacked</CardTitle>
+        <CardTitle>Active Users</CardTitle>
         <CardDescription>
-          Showing total visitors for the last 6 months
+          Users asking more than 5 questions per day (Last 7 days)
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig}>
-          <AreaChart
+          <LineChart
             accessibilityLayer
             data={chartData}
             margin={{
               left: 12,
               right: 12,
+              top: 12,
+              bottom: 12,
             }}
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="month"
+              dataKey="date"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value.slice(0, 3)}
+              tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             />
+            <YAxis
+  tickLine={false}
+  axisLine={false}
+  tickMargin={8}
+  domain={[0, 'auto']}
+  tickFormatter={(value: number) => value.toFixed(0)} // Convert number to string
+/>
+
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent indicator="dot" />}
+              content={<ChartTooltipContent />}
             />
-            <Area
-              dataKey="mobile"
-              type="natural"
-              fill="var(--color-mobile)"
-              fillOpacity={0.4}
-              stroke="var(--color-mobile)"
-              stackId="a"
+            <Line
+              dataKey="activeUsers"
+              type="linear"
+              stroke="hsl(var(--chart-1))"
+              strokeWidth={2}
+              dot={false}
             />
-            <Area
-              dataKey="desktop"
-              type="natural"
-              fill="var(--color-desktop)"
-              fillOpacity={0.4}
-              stroke="var(--color-desktop)"
-              stackId="a"
-            />
-          </AreaChart>
+            <Legend />
+          </LineChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter>
-        <div className="flex w-full items-start gap-2 text-sm">
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2 font-medium leading-none">
-              Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
-            </div>
-            <div className="flex items-center gap-2 leading-none text-muted-foreground">
-              January - June 2024
-            </div>
-          </div>
+      <CardFooter className="flex-col items-start gap-2 text-sm">
+        <div className="flex gap-2 font-medium leading-none">
+          {trend > 0 ? "Trending up" : "Trending down"} by {Math.abs(trend).toFixed(1)}% from previous day
+          <TrendingUp className={`h-4 w-4 ${trend < 0 ? 'rotate-180' : ''}`} />
+        </div>
+        <div className="leading-none text-muted-foreground">
+          Showing active users for the last 7 days
         </div>
       </CardFooter>
     </Card>
