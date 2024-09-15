@@ -62,7 +62,7 @@ function addNewlinesToMarkdown(markdown: string): string {
   return result;
 }
 
-export default function Dashboard() {
+export default function Home() {
   const session = useSession();
   const supabase = useSupabaseClient();
   const user = useUser();
@@ -75,6 +75,8 @@ export default function Dashboard() {
   const [userName, setUserName] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<{[key: number]: string | null}>({});
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+
+
 
   let sessionId = uuidv4();
 
@@ -222,9 +224,13 @@ export default function Dashboard() {
   };
 
 
-
   if (!session) {
+    console.log("Session", session)
     return <Auth />;
+  }
+
+  if (user && user.app_metadata.email_verified == false) { 
+    user.app_metadata.email_verified == true
   }
 
 

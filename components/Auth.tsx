@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from 'next/navigation';
 
 export default function Auth() {
   const [email, setEmail] = useState('')
@@ -22,19 +23,21 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
   const supabase = useSupabaseClient()
+  const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
             first_name: firstName,
             last_name: lastName,
-          }
-        }
+          },
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
       });
       if (error) throw error;
       console.log('Sign-up successful:', data);
@@ -46,15 +49,22 @@ export default function Auth() {
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) alert(error.message)
-  }
+    e.preventDefault();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      alert(error.message);
+    } else {
+      router.push('/'); // Redirect to /chat after successful login
+    }
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log("hey")
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email)
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email
+      });
       if (error) throw error;
       alert('Password reset email sent. Check your inbox.')
       setIsForgotPassword(false)
