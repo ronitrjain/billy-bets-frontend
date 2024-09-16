@@ -346,7 +346,7 @@ export default function Home() {
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
                       
                       
-                      {user && user.app_metadata.role == "super-admin" && isCompletedResponse && (
+                      {user && isCompletedResponse && (
                         <div className="mt-4 flex justify-end">
                           <ResponseButtons 
                             uploadQuery={uploadQuery} 
