@@ -1,50 +1,58 @@
 "use client";
 
 import { io } from "socket.io-client";
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import Markdown from "react-markdown";
 import { v4 as uuidv4 } from "uuid";
 import { CornerDownLeft } from "lucide-react";
-import { useSession, useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import {
+  useSession,
+  useSupabaseClient,
+  useUser,
+} from "@supabase/auth-helpers-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/components/ui/dialog";
+import SuggestionBlocks from "@/components/SuggestionBlocks";
+import Auth from "@/components/Auth";
+import ProfileAvatar from "@/components/ProfileAvatar";
+import ResponseButtons from "@/components/ResponseButtons";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { MdOutlineReplay } from "react-icons/md";
+import SpeechToTextButton from "../components/SpeechToText";
 
-// Assume these are imported from separate files
-import Auth from '@/components/Auth';
-import ProfileAvatar from '@/components/ProfileAvatar';
-import ResponseButtons from "@/components/ResponseButtons"
-
-
-
-interface Message { 
+interface Message {
   role: string;
   content: string;
 }
 
+interface ChatSession {
+  id: string;
+  name: string;
+  messages: Message[];
+  sqlQuery: string;
+}
+
 function addNewlinesToMarkdown(markdown: string): string {
+  if (typeof markdown !== "string") {
+    return "";
+  }
+
   const maxLineLength = 100;
   let result = "";
   let currentLineLength = 0;
@@ -66,128 +74,289 @@ export default function Home() {
   const session = useSession();
   const supabase = useSupabaseClient();
   const user = useUser();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [history, setHistory] = useState<string[]>([]);
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
-  const [sqlQuery, setSqlQuery] = useState("");
-  const [sqlLoading, setSqlLoading] = useState(false);
+  const [isSqlDialogOpen, setIsSqlDialogOpen] = useState(false);
   const [userName, setUserName] = useState("");
-  const [feedbackStatus, setFeedbackStatus] = useState<{[key: number]: string | null}>({});
+  const [feedbackStatus, setFeedbackStatus] = useState<{
+    [key: number]: string | null;
+  }>({});
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (chats.length === 0) {
+      handleNewChat();
+    }
+  }, []);
+
+  const currentChat = chats.find((chat) => chat.id === currentChatId);
+
+  const addMessageToCurrentChat = (message: Message) => {
+    if (!currentChatId || !message.content.trim()) return;
+
+    setChats((prevChats) =>
+      prevChats.map((chat) => {
+        if (chat.id === currentChatId) {
+          console.log(chat.messages)
+          const updatedMessages = [...chat.messages, message];
+          const updatedChat = {
+            ...chat,
+            messages: updatedMessages,
+          };
+          return updatedChat;
+        }
+        return chat;
+      })
+    );
+  };
+
+  const handleAskAgain = (assistantMessageIndex: number) => {
+    if (!currentChat) return;
+
+    const userMessageIndex = assistantMessageIndex - 1;
+    const userMessage = currentChat.messages[userMessageIndex];
+
+    if (userMessage && userMessage.role === "user") {
+      setIsAnswering(true);
+      getBillyResponse(userMessage.content);
+    }
+  };
 
 
-  let sessionId = uuidv4();
+  const updateLastMessageInCurrentChat = (content: string, done: boolean) => {
+    if (!currentChatId) return;
+    setChats((prevChats) =>
+      prevChats.map((chat) => {
+        if (chat.id === currentChatId) {
+          const updatedMessages = [...chat.messages];
+          if (updatedMessages.length > 0) {
+            updatedMessages[updatedMessages.length - 1].content = content;
+          }
+          const updatedChat = {
+            ...chat,
+            messages: updatedMessages,
+          };
 
-  const updateLastMessage = (message: string) => {
-    setMessages((prevChats) => {
-      const updatedChats = [...prevChats];
-      if (updatedChats.length > 0) {
-        updatedChats[updatedChats.length - 1].content = message;
+          if (done) { 
+            postChat(updatedMessages, chat.name, chat.sqlQuery, currentChatId);
+          }
+
+          console.log("Updating message")
+         
+          return updatedChat;
+        }
+        return chat;
+      })
+    );
+  };
+
+  const getChats = async () => {
+    console.log("Get chats running");
+    if (!user) return;
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND}/retrieve-all-chats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: user.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching chats:', errorData.error);
+        throw new Error('Failed to fetch chats');
       }
-      return updatedChats;
-    });
+
+      const data = await response.json();
+
+      console.log(user.id, data);
+
+      // Parse messages from JSON strings to arrays
+      const parsedChats = data.chats.map((chat: any) => {
+        let messagesArray = [];
+        try {
+          messagesArray = JSON.parse(chat.messages || '[]');
+        } catch (e) {
+          console.error('Error parsing messages:', e);
+        }
+        return {
+          ...chat,
+          messages: messagesArray,
+        };
+      });
+
+      setChats(parsedChats || []);
+
+      if (parsedChats && parsedChats.length > 0) {
+        setCurrentChatId(parsedChats[0].id);
+      } else {
+        handleNewChat();
+      }
+    } catch (error) {
+      console.error('Failed to fetch chats:', error);
+    }
+  };
+
+  // Move the useEffect hook outside of getChats
+  useEffect(() => {
+    getChats();
+  }, [user]);
+
+  const postChat = async (messages: Message[] | undefined, name: string | undefined, sqlQuery: string | undefined, chatId: string | null) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND}/post-chats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user?.id,
+          messages: JSON.stringify(messages) || [{}],
+          name: name || 'Untitled Chat',
+          sql_query: sqlQuery || '',
+          chat_id: chatId,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to post chat:', errorData.error);
+        throw new Error('Failed to post chats');
+      }
+
+      const data = await response.json();
+      console.log('Chat posted successfully:', data);
+    } catch (error) {
+      console.error('Failed to post chats:', error);
+    }
+  };
+
+  const updateSqlQueryInCurrentChat = (sqlQuery: string) => {
+    if (!currentChatId) return;
+    setChats((prevChats) =>
+      prevChats.map((chat) => {
+        if (chat.id === currentChatId) {
+          return {
+            ...chat,
+            sqlQuery,
+          };
+        }
+        return chat;
+      })
+    );
+  };
+
+  const handleNewChat = () => {
+    const newChatId = uuidv4();
+    const newChat: ChatSession = {
+      id: newChatId,
+      name: `Chat ${chats.length + 1}`, 
+      messages: [],
+      sqlQuery: "",
+    };
+    setChats([...chats, newChat]);
+    handleChangeChat(newChatId);
   };
 
   const uploadQuery = async (correct: boolean, index: number) => {
     const url = `${process.env.NEXT_PUBLIC_API_URL}store-query`;
     const userMessageIndex = index - 1;
-    
-    
-    
+
     const data = {
-      question: messages[userMessageIndex].content,
-      answer: messages[index].content,
+      question: currentChat?.messages[userMessageIndex].content,
+      answer: currentChat?.messages[index].content,
       correct: correct.toString(),
       category: "general",
-      sql: sqlQuery,
-      user_id: user?.id
+      sql: currentChat?.sqlQuery,
+      user_id: user?.id,
     };
-    console.log("Data", data)
+    
     try {
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
       });
-  
+
       if (response.ok) {
         const responseData = await response.json();
-        console.log('Query stored/updated successfully:', responseData);
+        console.log("Query stored/updated successfully:", responseData);
         return true;
       } else {
         const errorData = await response.json();
-        console.error('Error storing/updating query:', errorData);
+        console.error("Error storing/updating query:", errorData);
         return false;
       }
     } catch (error) {
-      console.error('Network error:', error);
+      console.error("Network error:", error);
       return false;
     }
   };
 
-
   const getBillyResponse = async (input: string) => {
-    setHistory((prev) => [...prev, input]);
-
     const socket = io(`${process.env.NEXT_PUBLIC_API_URL}`);
 
-    setSqlLoading(true);
     setIsAnswering(true);
-
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { role: "assistant", content: "Thinking..." },
-    ]);
+    addMessageToCurrentChat({ role: "assistant", content: "Thinking..." });
 
     socket.on("connect", () => {
       socket.emit("billy", {
-        message: { session: sessionId, message: [...history, input].toString() },
+        message: {
+          session: currentChatId,
+          message: input,
+        },
       });
 
       socket.on("billy", (data) => {
-        console.log(data);
-
         if (data.type === "query") {
-          setSqlQuery(data.response);
-          setSqlLoading(false);
+          updateSqlQueryInCurrentChat(data.response);
         }
 
         if (data.status !== "done" && data.type === "answer") {
-          setSqlLoading(false);
-          updateLastMessage(data.response);
-          console.log(data.response);
+          updateLastMessageInCurrentChat(data.response, false);
         } else if (data.status === "done" && data.type === "answer") {
           setIsAnswering(false);
-          updateLastMessage(data.response);
-          setHistory((prev) => [...prev, data.response]);
-          setSqlLoading(false);
+          updateLastMessageInCurrentChat(data.response, true);
+          
           socket.disconnect();
         }
       });
     });
   };
 
+  const handleSuggestionClick = (suggestion: string) => {
+    addMessageToCurrentChat({ role: "user", content: suggestion });
+    
+    if (currentChat && currentChat.name.startsWith('Chat')) {
+      updateChatName(currentChatId!, suggestion);
+    }
+    
+    setIsAnswering(true);
+    getBillyResponse(suggestion);
+  };
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [currentChat?.messages]);
 
   useEffect(() => {
     const fetchUserData = async () => {
       if (session) {
         const { data, error } = await supabase
-          .from('profiles') // Adjust table name if needed
-          .select('name')
-          .eq('id', session.user.id)
+          .from("profiles")
+          .select("first_name")
+          .eq("user_id", session.user?.id)
           .single();
 
         if (data) {
-          setUserName(data.name);
+          setUserName(data.first_name);
         } else {
           console.error(error);
         }
@@ -200,198 +369,219 @@ export default function Home() {
   const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (input.trim()) {
-      setMessages([...messages, { role: "user", content: input }]);
+      addMessageToCurrentChat({ role: "user", content: input });
+      if (currentChat && currentChat.name.startsWith('Chat')) {
+        updateChatName(currentChatId!, input);
+      }
       setInput("");
-      console.log("sending");
-      console.log(input);
       setIsAnswering(true);
       getBillyResponse(input);
     }
+  };
+
+  const updateChatName = (chatId: string, firstMessage: string) => {
+    setChats((prevChats) =>
+      prevChats.map((chat) => {
+        if (chat.id === chatId) {
+          return {
+            ...chat,
+            name: firstMessage.slice(0, 10) + (firstMessage.length > 10 ? "..." : ""),
+          };
+        }
+        return chat;
+      })
+    );
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (input.trim()) {
-        setMessages([...messages, { role: "user", content: input }]);
+        addMessageToCurrentChat({ role: "user", content: input });
+        if (currentChat && currentChat.name.startsWith('Chat')) {
+          updateChatName(currentChatId!, input);
+        }
         setInput("");
-        console.log("sending");
-        console.log(input);
         setIsAnswering(true);
         getBillyResponse(input);
       }
     }
   };
 
+  const handleChangeChat = (chat_id: string) => {
+    setCurrentChatId(chat_id);
+  };
 
   if (!session) {
-    console.log("Session", session)
     return <Auth />;
   }
 
-  if (user && user.app_metadata.email_verified == false) { 
-    user.app_metadata.email_verified == true
+  if (user && user.app_metadata.email_verified == false) {
+    user.app_metadata.email_verified = true;
   }
-
 
   return (
     <TooltipProvider>
-      <div className="grid h-screen w-full ">
-        <div className="flex flex-col">
-          <header className="sticky top-0 z-10 flex h-[57px] items-center gap-1 border-b bg-background px-4 justify-between">
-            <h1 className="text-xl font-semibold">Ask Billy</h1>
-            <ProfileAvatar />
-            <Drawer>
-              <DrawerTrigger asChild></DrawerTrigger>
-              <DrawerContent className="max-h-[80vh]">
-                <DrawerHeader>
-                  <DrawerTitle>Configuration</DrawerTitle>
-                  <DrawerDescription>
-                    Configure the settings for the model and messages.
-                  </DrawerDescription>
-                </DrawerHeader>
-                <form className="grid w-full items-start gap-6 overflow-auto p-4 pt-0">
-                  <fieldset className="grid gap-6 rounded-lg border p-4">
-                    <div className="grid gap-3">
-                      <Label htmlFor="role">Role</Label>
-                      <Select defaultValue="system">
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="system">System</SelectItem>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="assistant">Assistant</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="grid gap-3">
-                      <Label htmlFor="content">SQL Query</Label>
-                      <Textarea id="content" placeholder="You are a..." />
-                    </div>
-                  </fieldset>
-                </form>
-              </DrawerContent>
-            </Drawer>
-          </header>
-          <main className="grid flex-1 gap-4 overflow-auto p-4 md:grid-cols-2 lg:grid-cols-3">
-            <div
-              className="relative hidden flex-col items-start gap-8 md:flex"
-              x-chunk="dashboard-03-chunk-0"
-            >
-              <form className="grid w-full items-start gap-6">
-                <fieldset className="grid gap-6 rounded-lg border p-4">
-                  <div className="grid gap-3">
-                    <Label htmlFor="content">SQL Query</Label>
-                    {sqlLoading ? (
-                      <div
-                        style={{ minHeight: "30rem" }}
-                        className="w-ful flex justify-center items-center"
+      <div className="flex flex-col h-screen w-full">
+        <header className="sticky shadow-sm top-0 z-10 flex h-[57px] items-center gap-2 bg-background px-4 justify-between">
+          <h1 className="text-xl font-semibold">Ask Billy</h1>
+          <div className="flex items-end gap-2 justify">
+            <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost">View SQL</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>SQL Query</DialogTitle>
+                </DialogHeader>
+                <div className="mt-4">
+                  {currentChat && currentChat.sqlQuery ? (
+                    <Textarea
+                      readOnly
+                      value={currentChat.sqlQuery}
+                      className="w-full h-64"
+                    />
+                  ) : (
+                    <p>No SQL query available.</p>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <ProfileAvatar />
+        </header>
+
+        <main className="flex-1 flex flex-col  md:flex-row overflow-hidden">
+          <div className="md:hidden p-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button className="w-full">Open Chat List</Button>
+              </PopoverTrigger>
+              <PopoverContent>
+                <Button onClick={handleNewChat} className="mb-4 w-full">
+                  New Chat
+                </Button>
+                <ul>
+                  {chats.map((chat) => (
+                    <li key={chat.id} className="mb-2">
+                      <Button
+                        variant={chat.id === currentChatId ? "outline" : "ghost"}
+                        onClick={() => handleChangeChat(chat.id)}
+                        className="w-full text-left truncate"
                       >
-                        <div role="status">
-                          <svg
-                            aria-hidden="true"
-                            className="w-12 h-12 text-gray-200 animate-spin dark:text-gray-600 fill-gray-600"
-                            viewBox="0 0 100 101"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                          >
-                            <path
-                              d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                              fill="currentColor"
-                            />
-                            <path
-                              d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                              fill="currentFill"
-                            />
-                          </svg>
-                          <span className="sr-only">Loading...</span>
-                        </div>
-                      </div>
-                    ) : (
-                      
-                      <Textarea
-                        id="content"
-                        readOnly
-                        value={sqlQuery}
-                        className="min-h-[30.5rem]"
-                      />
-                    )}
-                  </div>
-                </fieldset>
-              </form>
-            </div>
-            <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-muted/50 p-4 lg:col-span-2 overflow-y-scroll max-h-[90vh]">
-              <div className="flex-1 overflow-y-scroll p-4">
-                {messages.map((msg, index) => {
-                  const isLastMessage = index === messages.length - 1;
-                  const isCompletedResponse = msg.role === "assistant" && !isAnswering;
-                  return (
-                    <div
-                      key={index}
-                      ref={isLastMessage ? messagesEndRef : null}
-                      className="my-2 p-3 rounded-lg shadow-sm bg-white text-black text-sm self-start text-left break-words"
-                      style={{ overflowWrap: "break-word", maxWidth: "95%" }}
-                    >
-                      {msg.role === "user" ? (
-                        <Badge className="bg-primary text-xs text-white my-2">
-                          User
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-gray-900 text-xs my-2 text-white">
-                          Billy
-                        </Badge>
+                        {chat.name}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </PopoverContent>
+            </Popover>
+          </div>
 
-                      )}
-                      <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                      
-                      
-                      {user && isCompletedResponse && (
-                        <div className="mt-4 flex justify-end">
-                          <ResponseButtons 
-                            uploadQuery={uploadQuery} 
-                            index={index}
-                            feedbackStatus={feedbackStatus}
-                            setFeedbackStatus={setFeedbackStatus}
-                          />
-                      </div>
-)}
-                
-                  
-                    </div>
-                  );
-                })}
-              </div>
-
-              <form
-                className="relative overflow-hidden rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring"
-                onSubmit={handleSend}
-              >
-                <Label htmlFor="message" className="sr-only">
-                  Message
-                </Label>
-                <Textarea
-                  id="message"
-                  placeholder="Type your message here..."
-                  className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-                <div className="flex items-center p-3 pt-0">
+          <div className="w-64 h-full hidden md:block bg-gray-100 p-4 overflow-auto">
+            <Button onClick={handleNewChat} className="mb-4 w-full">
+              New Chat
+            </Button>
+            <ul>
+              {chats.map((chat) => (
+                <li key={chat.id} className="mb-2">
                   <Button
-                    type="submit"
-                    className="ml-auto gap-1.5"
+                    variant={chat.id === currentChatId ? "outline" : "secondary"}
+                    onClick={() => setCurrentChatId(chat.id)}
+                    className="w-full text-left truncate"
+                  >
+                    {chat.name}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="flex flex-col w-full h-full rounded-2xl bg-muted/50 p-4 shadow-md overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4">
+      {currentChat &&
+        currentChat.messages &&
+        currentChat.messages.map((msg, index) => {
+          const isLastMessage = index === currentChat.messages.length - 1;
+          const isCompletedResponse =
+            msg.role === "assistant" && !isAnswering;
+          return (
+            <div
+              key={index}
+              ref={isLastMessage ? messagesEndRef : null}
+              className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm self-start text-left break-words border-0"
+              style={{ overflowWrap: "break-word", maxWidth: "95%" }}
+            >
+              {msg.role === "user" ? (
+                <Badge className="bg-primary text-xs text-white my-2 rounded-full">
+                  User
+                </Badge>
+              ) : (
+                <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
+                  Billy
+                </Badge>
+              )}
+              <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+              {user && isCompletedResponse && (
+                <div className="mt-4 flex justify-end items-center gap-2">
+                  <ResponseButtons
+                    uploadQuery={uploadQuery}
+                    index={index}
+                    feedbackStatus={feedbackStatus}
+                    setFeedbackStatus={setFeedbackStatus}
+                  />
+                  <Button
+                    variant="ghost"
+                    className="ml-2"
+                    onClick={() => handleAskAgain(index)}
                     disabled={isAnswering}
                   >
-                    Ask Billy
-                    <CornerDownLeft className="size-3.5" />
+                    <MdOutlineReplay size={20} />
+              
                   </Button>
                 </div>
-              </form>
+              )}
             </div>
-          </main>
-        </div>
+          );
+        })}
+    </div>
+
+            {currentChat?.messages?.length === 0 && (
+              <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
+            )}
+              <form
+  className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
+  onSubmit={handleSend}
+>
+  <Label htmlFor="message" className="sr-only">
+    Message
+  </Label>
+  <Textarea
+    id="message"
+    placeholder="Type your message here..."
+    className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    onKeyDown={handleKeyDown}
+  />
+  <div className="flex items-center p-3 pt-0 justify-end gap-2">
+    <SpeechToTextButton
+      onResult={(transcript) => {
+        setInput(transcript);
+      }}
+    />
+    <Button
+      type="submit"
+      className="gap-1.5 rounded-full shadow-md"
+      disabled={isAnswering}
+    >
+      Ask Billy
+      <CornerDownLeft className="size-3.5" />
+    </Button>
+  </div>
+</form>
+          </div>
+        </main>
       </div>
     </TooltipProvider>
   );
