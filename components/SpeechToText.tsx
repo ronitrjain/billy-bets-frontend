@@ -1,8 +1,7 @@
-// components/SpeechToTextButton.tsx
-
 "use client";
-
-import React, { useState, useEffect } from "react";
+import 'regenerator-runtime/runtime'
+import React, { useEffect } from "react";
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { FaMicrophone } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 
@@ -11,64 +10,37 @@ interface SpeechToTextButtonProps {
 }
 
 const SpeechToTextButton: React.FC<SpeechToTextButtonProps> = ({ onResult }) => {
-  const [isListening, setIsListening] = useState(false);
-  let recognition: SpeechRecognition | null = null;
+  const { transcript, listening, resetTranscript, browserSupportsSpeechRecognition } =
+    useSpeechRecognition();
 
   useEffect(() => {
-    // Check if the browser supports the SpeechRecognition API
-    const SpeechRecognition =
-      window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      console.error("Speech recognition is not supported in this browser.");
-      return;
-    }
-
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0].transcript)
-        .join("");
+    if (transcript) {
       onResult(transcript);
-      setIsListening(false);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    if (isListening) {
-      recognition.start();
-    } else {
-      recognition.stop();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript]);
 
-    // Clean up when the component is unmounted
-    return () => {
-      if (recognition) {
-        recognition.abort();
-      }
-    };
-  }, [isListening, onResult]);
+  if (!browserSupportsSpeechRecognition) {
+    return null;
+  }
 
-  const handleButtonClick = () => {
-    setIsListening((prevState) => !prevState);
+  const handleStart = () => {
+    resetTranscript();
+    SpeechRecognition.startListening({
+      continuous: false,
+      language: "en-US",
+    });
+  };
+
+  const handleStop = () => {
+    SpeechRecognition.stopListening();
   };
 
   return (
     <Button
       type="button"
-      onClick={handleButtonClick}
-      variant={isListening ? "secondary" : "ghost"}
+      onClick={listening ? handleStop : handleStart}
+      variant={listening ? "secondary" : "ghost"}
       className="ml-2"
     >
       <FaMicrophone size={20} />

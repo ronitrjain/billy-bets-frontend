@@ -19,16 +19,16 @@ export default function SuggestionBlocks({
     {
       title: "Tua's Injury",
       description:
-        "What is the Dolphins' record without Tua as their starter?",
+        "What are the key stats I should consider before betting on Cowboys vs Giants?",
     },
     {
       title: "Props for Week 3",
-      description: "Give me 5 interesting props for Week 3",
+      description: "How has Ceedee Lamb performed in his last 3 games?",
     },
     {
       title: "Ravens vs. Cowboys",
       description:
-        "What is Dak Prescott's record when playing vs. AFC playoff teams at home?",
+        "How do Dallas Cowboys and New York Giants match up head-to-head?",
     },
   ];
 
@@ -41,8 +41,7 @@ export default function SuggestionBlocks({
           onClick={() => onSuggestionClick(suggestion.description)}
         >
           <CardHeader className="pb-2 mt-4 pt-0">
-            <CardTitle className="text-sm">{suggestion.title}</CardTitle>
-            <CardDescription className="text-sm text-muted-foreground">
+            <CardDescription className="text-md">
               {suggestion.description}
             </CardDescription>
           </CardHeader>

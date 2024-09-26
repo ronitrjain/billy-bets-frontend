@@ -119,6 +119,7 @@ export default function Home() {
     const userMessage = currentChat.messages[userMessageIndex];
 
     if (userMessage && userMessage.role === "user") {
+      addMessageToCurrentChat(userMessage);
       setIsAnswering(true);
       getBillyResponse(userMessage.content);
     }
@@ -550,36 +551,36 @@ export default function Home() {
               <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
             )}
               <form
-  className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
-  onSubmit={handleSend}
->
-  <Label htmlFor="message" className="sr-only">
-    Message
-  </Label>
-  <Textarea
-    id="message"
-    placeholder="Type your message here..."
-    className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
-    value={input}
-    onChange={(e) => setInput(e.target.value)}
-    onKeyDown={handleKeyDown}
-  />
-  <div className="flex items-center p-3 pt-0 justify-end gap-2">
-    <SpeechToTextButton
-      onResult={(transcript) => {
-        setInput(transcript);
-      }}
-    />
-    <Button
-      type="submit"
-      className="gap-1.5 rounded-full shadow-md"
-      disabled={isAnswering}
-    >
-      Ask Billy
-      <CornerDownLeft className="size-3.5" />
-    </Button>
-  </div>
-</form>
+                className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
+                onSubmit={handleSend}
+              >
+                <Label htmlFor="message" className="sr-only">
+                  Message
+                </Label>
+                <Textarea
+                  id="message"
+                  placeholder="Type your message here..."
+                  className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+                <div className="flex items-center p-3 pt-0 justify-end gap-2">
+                  <SpeechToTextButton
+                    onResult={(transcript) => {
+                      setInput(transcript);
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    className="gap-1.5 rounded-full shadow-md"
+                    disabled={isAnswering}
+                  >
+                    Ask Billy
+                    <CornerDownLeft className="size-3.5" />
+                  </Button>
+              </div>
+            </form>
           </div>
         </main>
       </div>
