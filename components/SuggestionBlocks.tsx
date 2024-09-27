@@ -1,12 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardHeader, CardDescription } from "@/components/ui/card";
 
 interface SuggestionBlocksProps {
   onSuggestionClick: (suggestion: string) => void;
@@ -19,21 +13,21 @@ export default function SuggestionBlocks({
     {
       title: "Tua's Injury",
       description:
-        "What are the key stats I should consider before betting on Cowboys vs Giants?",
+        "What are the key stats I should consider before betting on Green Bay Packers vs Minnesota Vikings?",
     },
     {
       title: "Props for Week 3",
-      description: "How has Ceedee Lamb performed in his last 3 games?",
+      description: "How has Jayden Reed performed in their last 3 games, and what are their best prop bets for their upcoming game?",
     },
     {
       title: "Ravens vs. Cowboys",
       description:
-        "How do Dallas Cowboys and New York Giants match up head-to-head?",
+        "How do Cardinals and Commanders match up head-to-head, and should I bet on the over/under for their combined points?",
     },
   ];
 
   return (
-    <div className="rounded-lg grid grid-cols-3 gap-4 p-4 justify-items-stretch">
+    <div className="rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4 p-4 justify-items-stretch">
       {suggestions.map((suggestion, index) => (
         <Card
           key={index}
