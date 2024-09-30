@@ -1,8 +1,10 @@
 // app/layout.tsx
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/react"
 import SupabaseProvider from '@/components/SupabaseProvider';
 const inter = Inter({ subsets: ["latin"] });
+
 
 export const metadata = {
   title: "Billy Bets",
@@ -19,6 +21,7 @@ export default function RootLayout({
       <body className={inter.className}>
           <SupabaseProvider>
             {children}
+            <Analytics />
           </SupabaseProvider>
       </body>
     </html>
