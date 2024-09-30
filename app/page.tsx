@@ -158,7 +158,7 @@ export default function Home() {
     if (!user) return;
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND}/retrieve-all-chats`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/retrieve-all-chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +209,7 @@ export default function Home() {
 
   const postChat = async (messages: Message[] | undefined, name: string | undefined, sqlQuery: string | undefined, chatId: string | null) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND}/post-chats`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/post-chats`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
