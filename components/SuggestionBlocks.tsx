@@ -13,16 +13,16 @@ export default function SuggestionBlocks({
     {
       title: "Tua's Injury",
       description:
-        "What are the key stats I should consider before betting on Green Bay Packers vs Minnesota Vikings?",
+        "How will the absence of Tua Tagovailoa affect the Dolphins' offensive strategy against the Titans?",
     },
     {
       title: "Props for Week 3",
-      description: "How has Jayden Reed performed in their last 3 games, and what are their best prop bets for their upcoming game?",
+      description: "What are some betting props for Jared Goff that could be good picks for the Seahawks vs. Lions game? ",
     },
     {
       title: "Ravens vs. Cowboys",
       description:
-        "How do Cardinals and Commanders match up head-to-head, and should I bet on the over/under for their combined points?",
+        "How has Will Levis performed statistically when playing on the road against a top-15 defense?",
     },
   ];
 
