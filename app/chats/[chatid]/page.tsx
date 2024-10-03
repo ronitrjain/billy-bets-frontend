@@ -6,7 +6,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { io } from "socket.io-client";
 import Markdown from "react-markdown";
 import { CornerDownLeft } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import Navbar from "@/components/Nav";
 import {
   useSession,
   useSupabaseClient,
@@ -16,9 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogTrigger,
@@ -61,6 +60,7 @@ function addNewlinesToMarkdown(markdown: string): string {
 }
 
 export default function ChatPage() {
+  const router = useRouter();
   const { chatid: chatIdParam } = useParams();
   const chatId = Array.isArray(chatIdParam) ? chatIdParam[0] : chatIdParam;
 
@@ -331,9 +331,10 @@ export default function ChatPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen w-full">
-        <header className="sticky shadow-sm top-0 z-10 flex h-[57px] items-center gap-2 bg-background px-4 justify-between">
-          <h1 className="text-xl font-semibold">Ask Billy</h1>
-          <div className="flex items-end gap-2 justify">
+        {/* Header at the top */}
+        <header className="sticky shadow-sm top-0 z-10 flex h-[70px] items-center gap-2 bg-background px-4 py-2 justify-between">
+        <h1 className="text-xl font-semibold">Ask Billy</h1>
+          <div className="flex items-end gap-2">
             <Dialog
               open={isSqlDialogOpen}
               onOpenChange={setIsSqlDialogOpen}
@@ -362,90 +363,97 @@ export default function ChatPage() {
           <ProfileAvatar />
         </header>
 
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex flex-col w-full h-full rounded-2xl bg-muted/50 p-4 shadow-md overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4">
-              {messages.map((msg, index) => {
-                const isLastMessage = index === messages.length - 1;
-                const isCompletedResponse =
-                  msg.role === "assistant" && !isAnswering;
-                return (
-                  <div
-                    key={index}
-                    ref={isLastMessage ? messagesEndRef : null}
-                    className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm self-start text-left break-words border-0"
-                    style={{ overflowWrap: "break-word", maxWidth: "95%" }}
-                  >
-                    {msg.role === "user" ? (
-                      <Badge className="bg-primary text-xs text-white my-2 rounded-full">
-                        User
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
-                        Billy
-                      </Badge>
-                    )}
-                    <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                    {user && isCompletedResponse && (
-                      <div className="mt-4 flex justify-end items-center gap-2">
-                        <ResponseButtons
-                          uploadQuery={uploadQuery}
-                          index={index}
-                          feedbackStatus={feedbackStatus}
-                          setFeedbackStatus={setFeedbackStatus}
-                        />
-                        <Button
-                          variant="ghost"
-                          className="ml-2"
-                          onClick={() => handleAskAgain(index)}
-                          disabled={isAnswering}
-                        >
-                          <MdOutlineReplay size={20} />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+        {/* Content below header */}
+        <div className="flex flex-row flex-1">
+          {/* Navbar on the left */}
+          <Navbar />
 
-            {messages.length === 0 && (
-              <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
-            )}
-
-            <form
-              className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
-              onSubmit={handleSend}
-            >
-              <Label htmlFor="message" className="sr-only">
-                Message
-              </Label>
-              <Textarea
-                id="message"
-                placeholder="Type your message here..."
-                className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
-              <div className="flex items-center p-3 pt-0 justify-end gap-2">
-                <SpeechToTextButton
-                  onResult={(transcript) => {
-                    setInput(transcript);
-                  }}
-                />
-                <Button
-                  type="submit"
-                  className="gap-1.5 rounded-full shadow-md"
-                  disabled={isAnswering}
-                >
-                  Ask Billy
-                  <CornerDownLeft className="size-3.5" />
-                </Button>
+          {/* Main content area */}
+          <main className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex flex-col w-full h-full rounded-2xl bg-muted/50 p-4 shadow-md overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4">
+                {messages.map((msg, index) => {
+                  const isLastMessage = index === messages.length - 1;
+                  const isCompletedResponse =
+                    msg.role === "assistant" && !isAnswering;
+                  return (
+                    <div
+                      key={index}
+                      ref={isLastMessage ? messagesEndRef : null}
+                      className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm self-start text-left break-words border-0"
+                      style={{ overflowWrap: "break-word", maxWidth: "95%" }}
+                    >
+                      {msg.role === "user" ? (
+                        <Badge className="bg-primary text-xs text-white my-2 rounded-full">
+                          User
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
+                          Billy
+                        </Badge>
+                      )}
+                      <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+                      {user && isCompletedResponse && (
+                        <div className="mt-4 flex justify-end items-center gap-2">
+                          <ResponseButtons
+                            uploadQuery={uploadQuery}
+                            index={index}
+                            feedbackStatus={feedbackStatus}
+                            setFeedbackStatus={setFeedbackStatus}
+                          />
+                          <Button
+                            variant="ghost"
+                            className="ml-2"
+                            onClick={() => handleAskAgain(index)}
+                            disabled={isAnswering}
+                          >
+                            <MdOutlineReplay size={20} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </form>
-          </div>
-        </main>
+
+              {messages.length === 0 && (
+                <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
+              )}
+
+              <form
+                className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
+                onSubmit={handleSend}
+              >
+                <Label htmlFor="message" className="sr-only">
+                  Message
+                </Label>
+                <Textarea
+                  id="message"
+                  placeholder="Type your message here..."
+                  className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+                <div className="flex items-center p-3 pt-0 justify-end gap-2">
+                  <SpeechToTextButton
+                    onResult={(transcript) => {
+                      setInput(transcript);
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    className="gap-1.5 rounded-full shadow-md"
+                    disabled={isAnswering}
+                  >
+                    Ask Billy
+                    <CornerDownLeft className="size-3.5" />
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </main>
+        </div>
       </div>
     </TooltipProvider>
   );

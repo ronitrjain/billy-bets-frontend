@@ -19,13 +19,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} flex h-screen`}>
         <SupabaseProvider>
-          <div className="flex flex-row w-full h-full">
-            <Navbar />
             {/* Main content area */}
             <div className="flex-1 overflow-auto">
               {children}
             </div>
-          </div>
           <Analytics />
         </SupabaseProvider>
       </body>
