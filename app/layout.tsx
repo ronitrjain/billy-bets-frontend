@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} flex h-screen`}>
+      <body className={`${inter.className} flex h-100`}>
         <SupabaseProvider>
             {/* Main content area */}
             <div className="flex-1 overflow-auto">

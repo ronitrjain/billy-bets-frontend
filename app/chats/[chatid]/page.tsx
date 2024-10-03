@@ -1,5 +1,3 @@
-// app/chat/[chatid]/page.tsx
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -35,6 +33,7 @@ import SpeechToTextButton from "@/components/SpeechToText";
 interface Message {
   role: string;
   content: string;
+  isNew?: boolean; // Add this optional property
 }
 
 function addNewlinesToMarkdown(markdown: string): string {
@@ -121,6 +120,11 @@ export default function ChatPage() {
         let messagesArray: Message[] = [];
         try {
           messagesArray = JSON.parse(data.chat || "[]");
+          // Mark all loaded messages as old
+          messagesArray = messagesArray.map((msg) => ({
+            ...msg,
+            isNew: false,
+          }));
         } catch (parseError) {
           console.error("Error parsing messages:", parseError);
         }
@@ -137,7 +141,11 @@ export default function ChatPage() {
 
   const addMessage = (message: Message) => {
     if (!message.content.trim()) return;
-    setMessages((prevMessages) => [...prevMessages, message]);
+    // Mark new messages as new
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      { ...message, isNew: true },
+    ]);
   };
 
   const updateLastMessage = (content: string, done: boolean) => {
@@ -148,6 +156,8 @@ export default function ChatPage() {
       }
 
       if (done) {
+        // Mark the assistant's response as new
+        updatedMessages[updatedMessages.length - 1].isNew = true;
         postChat(updatedMessages, sqlQuery);
       }
 
@@ -330,15 +340,12 @@ export default function ChatPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen w-full">
+      <div className="flex flex-col w-full h-full h-100">
         {/* Header at the top */}
         <header className="sticky shadow-sm top-0 z-10 flex h-[70px] items-center gap-2 bg-background px-4 py-2 justify-between">
-        <h1 className="text-xl font-semibold">Ask Billy</h1>
+          <h1 className="text-xl font-semibold">Ask Billy</h1>
           <div className="flex items-end gap-2">
-            <Dialog
-              open={isSqlDialogOpen}
-              onOpenChange={setIsSqlDialogOpen}
-            >
+            <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="ghost">View SQL</Button>
               </DialogTrigger>
@@ -348,11 +355,7 @@ export default function ChatPage() {
                 </DialogHeader>
                 <div className="mt-4">
                   {sqlQuery ? (
-                    <Textarea
-                      readOnly
-                      value={sqlQuery}
-                      className="w-full h-64"
-                    />
+                    <Textarea readOnly value={sqlQuery} className="w-full h-64" />
                   ) : (
                     <p>No SQL query available.</p>
                   )}
@@ -364,23 +367,25 @@ export default function ChatPage() {
         </header>
 
         {/* Content below header */}
-        <div className="flex flex-row flex-1">
+        <div className="flex flex-1 h-0 overflow-hidden">
           {/* Navbar on the left */}
           <Navbar />
 
           {/* Main content area */}
-          <main className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex flex-col w-full h-full rounded-2xl bg-muted/50 p-4 shadow-md overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-4">
+        <main className="flex-1 flex flex-col">
+          <div className="flex flex-col flex-1 p-4 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 bg-muted/50 rounded-2xl shadow-md">
                 {messages.map((msg, index) => {
                   const isLastMessage = index === messages.length - 1;
                   const isCompletedResponse =
                     msg.role === "assistant" && !isAnswering;
+                  const shouldShowResponseButtons = msg.isNew && isCompletedResponse;
+
                   return (
                     <div
                       key={index}
                       ref={isLastMessage ? messagesEndRef : null}
-                      className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm self-start text-left break-words border-0"
+                      className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm break-words"
                       style={{ overflowWrap: "break-word", maxWidth: "95%" }}
                     >
                       {msg.role === "user" ? (
@@ -393,7 +398,7 @@ export default function ChatPage() {
                         </Badge>
                       )}
                       <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                      {user && isCompletedResponse && (
+                      {user && shouldShowResponseButtons && (
                         <div className="mt-4 flex justify-end items-center gap-2">
                           <ResponseButtons
                             uploadQuery={uploadQuery}
@@ -414,12 +419,14 @@ export default function ChatPage() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
 
               {messages.length === 0 && (
                 <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
               )}
 
+              {/* Input Form */}
               <form
                 className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
                 onSubmit={handleSend}

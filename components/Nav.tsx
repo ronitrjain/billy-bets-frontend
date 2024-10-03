@@ -1,7 +1,7 @@
 // components/Navbar.tsx
 
 "use client";
-
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
@@ -86,7 +86,7 @@ export default function Navbar() {
   };
 
   return (
-    <aside className="w-64 h-screen bg-gray-100 flex flex-col p-4 overflow-auto">
+    <aside className="w-64 h-100 bg-gray-100 flex flex-col p-4 overflow-hidden">
       <Button onClick={handleNewChat} className="mb-4 w-full">
         New Chat
       </Button>
@@ -94,13 +94,14 @@ export default function Navbar() {
         <ul className="space-y-2">
           {chats.map((chat) => (
             <li key={chat.id}>
-              <Button
-                variant={chat.id === currentChatId ? "outline" : "ghost"}
-                onClick={() => handleChangeChat(chat.id)}
-                className="w-full text-left truncate"
-              >
-                {chat.name}
-              </Button>
+              <Link href={`/chats/${chat.id}`}>
+  <Button
+    variant={chat.id === currentChatId ? "outline" : "ghost"}
+    className="w-full text-left truncate"
+  >
+    {chat.name}
+  </Button>
+</Link>
             </li>
           ))}
         </ul>
