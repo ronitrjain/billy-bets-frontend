@@ -12,6 +12,7 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 interface ChatSession {
   id: string;
   name: string;
+  updated_at: string; // Add this field to store the timestamp
 }
 
 export default function Navbar() {
@@ -42,11 +43,24 @@ export default function Navbar() {
         }
 
         const data = await response.json();
+
+        // Parse chats and include the 'updated_at' timestamp
         const parsedChats = data.chats.map((chat: any) => ({
           id: chat.id,
           name: chat.name || "Untitled Chat",
+          updated_at: chat.updated_at || chat.created_at, // Use 'updated_at' or 'created_at' timestamp
         }));
-        setChats(parsedChats);
+
+        // Sort chats by 'updated_at' in descending order (most recent first)
+        parsedChats.sort(
+          (a: ChatSession, b: ChatSession) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+
+        // Limit to 10 most recent chats
+        const recentChats = parsedChats.slice(0, 10);
+
+        setChats(recentChats);
       } catch (error) {
         console.error("Error fetching chats:", error);
       }
@@ -71,10 +85,8 @@ export default function Navbar() {
     router.push(`/chats/${chatId}`);
   };
 
-  
   return (
     <aside className="w-64 h-screen bg-gray-100 flex flex-col p-4 overflow-auto">
-      <h1 className="text-xl font-semibold mb-4">Ask Billy</h1>
       <Button onClick={handleNewChat} className="mb-4 w-full">
         New Chat
       </Button>
@@ -93,9 +105,6 @@ export default function Navbar() {
           ))}
         </ul>
       </nav>
-      <div className="mt-4">
-        <ProfileAvatar />
-      </div>
     </aside>
   );
 }
