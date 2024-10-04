@@ -13,16 +13,16 @@ export default function SuggestionBlocks({
     {
       title: "Tua's Injury",
       description:
-        "What are they key stats I should consider before betting on Buccaneers vs. Falcons?",
+        "What are the key stats from this season I should consider before betting Cowboys vs. Steelers?",
     },
     {
       title: "Props for Week 3",
-      description: "How has Bucky Irving performed in their last 4 games, and what are their best prop bets for thier upcoming game?",
+      description: "How has Jayden Reed performed in games this season when Jordan Love is starting at QB?",
     },
     {
       title: "Ravens vs. Cowboys",
       description:
-        "How do the Buccaneers and Falcons matchup head to head, and should I bet on the over/under for their combined points?",
+        "What are the most common outcomes when the Ravens play at the Bengals, and how should that influence my bet?",
     },
   ];
 
