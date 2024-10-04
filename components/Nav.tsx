@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 interface ChatSession {
   id: string;
   name: string;
-  updated_at: string;
+  created_at: string;
 }
 
 const Navbar: React.FC = () => {
@@ -40,13 +40,14 @@ const Navbar: React.FC = () => {
 
         const data = await response.json();
 
-        const parsedChats = data.chats.map((chat: any) => ({
-          id: chat.id,
-          name: chat.name || "Untitled Chat",
-          updated_at: chat.updated_at || chat.created_at,
-        }));
+        // Sort chats by `created_at` in descending order to get the latest chats first
+        const sortedChats = data.chats.sort(
+          (a: ChatSession, b: ChatSession) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
-        setChats(parsedChats.slice(0, 10));
+        // Limit to the last 10 created chats
+        setChats(sortedChats.slice(0, 10));
       } catch (error) {
         console.error("Error fetching chats:", error);
       }
@@ -55,8 +56,47 @@ const Navbar: React.FC = () => {
     fetchChats();
   }, [user]);
 
-  const handleNewChat = () => {
+  const postChat = async (newChatId: string) => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/post-chats`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: user?.id,
+          messages: JSON.stringify([]), // No messages yet
+          name: "Untitled Chat",
+          sql_query: "", // No SQL query yet
+          chat_id: newChatId,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Failed to post chat:", errorData.error);
+        throw new Error("Failed to post chat");
+      }
+      console.log("Chat posted successfully");
+    } catch (error) {
+      console.error("Failed to post chat:", error);
+    }
+  };
+
+  const handleNewChat = async () => {
     const newChatId = uuidv4();
+    
+    // Update UI immediately with new chat
+    const newChat = {
+      id: newChatId,
+      name: "Untitled Chat",
+      created_at: new Date().toISOString(),
+    };
+    setChats((prevChats) => [newChat, ...prevChats].slice(0, 10)); // Limit to the last 10 chats
+
+    // Post the new chat to the server
+    await postChat(newChatId);
+
+    // Navigate to the new chat
     router.push(`/chats/${newChatId}`);
   };
 
