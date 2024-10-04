@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react'; // Import the Loader2 icon
 
 export default function Auth() {
   const [email, setEmail] = useState('')
@@ -22,6 +23,7 @@ export default function Auth() {
   const [lastName, setLastName] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false) // New state for loading
   const supabase = useSupabaseClient()
   const router = useRouter();
 
@@ -50,11 +52,22 @@ export default function Auth() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+    try {
+      setIsLoading(true); // Start loading
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setIsLoading(false); // Stop loading on error
+        alert(error.message);
+      } else {
+        // Optionally, you can add a delay to show the loading spinner
+        setTimeout(() => {
+          router.push('/'); // Redirect to home or /chat after successful login
+        }, 2000); // 2-second delay
+      }
+    } catch (error: any) {
+      setIsLoading(false); // Stop loading on error
+      console.error('Error during sign-in:', error);
       alert(error.message);
-    } else {
-      router.push('/'); // Redirect to /chat after successful login
     }
   };
 
@@ -62,8 +75,8 @@ export default function Auth() {
     e.preventDefault()
     console.log("hey")
     try {
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/confirm`,
       });
       if (error) throw error;
       alert('Password reset email sent. Check your inbox.')
@@ -153,7 +166,7 @@ export default function Auth() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLogin ? 'Login' : 'Create an account'}
           </Button>
         </div>
@@ -179,32 +192,40 @@ export default function Auth() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {renderForm()}
-          {!isForgotPassword && (
-            <div className="mt-4 text-center text-sm">
-              {isLogin ? (
-                <>
-                  Don&apos;t have an account?{" "}
-                  <Link href="#" className="underline" onClick={() => setIsLogin(false)}>
-                    Sign up
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Already have an account?{" "}
-                  <Link href="#" className="underline" onClick={() => setIsLogin(true)}>
-                    Sign in
-                  </Link>
-                </>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="animate-spin w-8 h-8 text-gray-500" />
+            </div>
+          ) : (
+            <>
+              {renderForm()}
+              {!isForgotPassword && (
+                <div className="mt-4 text-center text-sm">
+                  {isLogin ? (
+                    <>
+                      Don&apos;t have an account?{" "}
+                      <Link href="#" className="underline" onClick={() => setIsLogin(false)}>
+                        Sign up
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      Already have an account?{" "}
+                      <Link href="#" className="underline" onClick={() => setIsLogin(true)}>
+                        Sign in
+                      </Link>
+                    </>
+                  )}
+                </div>
               )}
-            </div>
-          )}
-          {isForgotPassword && (
-            <div className="mt-4 text-center text-sm">
-              <Link href="#" className="underline" onClick={() => setIsForgotPassword(false)}>
-                Back to login
-              </Link>
-            </div>
+              {isForgotPassword && (
+                <div className="mt-4 text-center text-sm">
+                  <Link href="#" className="underline" onClick={() => setIsForgotPassword(false)}>
+                    Back to login
+                  </Link>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

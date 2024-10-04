@@ -13,6 +13,7 @@ import {
   useSupabaseClient,
   useUser,
 } from "@supabase/auth-helpers-react";
+import { Loader2 } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -95,6 +96,7 @@ export default function ChatPage() {
     [key: number]: string | null;
   }>({});
   const [sqlQuery, setSqlQuery] = useState("");
+  const [loading, setLoading] = useState(true)
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
   // State for chats
@@ -139,8 +141,12 @@ export default function ChatPage() {
         const recentChats = parsedChats.slice(0, 10);
 
         setChats(recentChats);
+        setTimeout(() => {
+          setLoading(false);
+        }, 2);
       } catch (error) {
         console.error("Error fetching chats:", error);
+        setLoading(false);
       }
     };
 
@@ -420,122 +426,124 @@ export default function ChatPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col w-full h-full">
-        {/* Content below header */}
-        <div className="flex flex-1 h-0 overflow-hidden">
-          {/* Main content area */}
-          <main className="flex-1 flex flex-col">
-            <div className="flex flex-col flex-1 p-4 overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-4 bg-muted/50 rounded-2xl shadow-md flex flex-col">
-                {/* Messages container */}
-                <div className="flex-1 flex flex-col">
-                  {messages.map((msg, index) => {
-                    const isLastMessage = index === messages.length - 1;
-                    const isCompletedResponse = msg.role === "assistant" && !isAnswering;
-                    const shouldShowResponseButtons = msg.isNew && isCompletedResponse;
-
-                    return (
-                      <div
-                        key={index}
-                        ref={isLastMessage ? messagesEndRef : null}
-                        className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm break-words"
-                        style={{ overflowWrap: "break-word", maxWidth: "95%" }}
-                      >
-                        {msg.role === "user" ? (
-                          <Badge className="bg-primary text-xs text-white my-2 rounded-full">
-                            User
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
-                            Billy
-                          </Badge>
-                        )}
-                        <Markdown>
-                          {addNewlinesToMarkdown(msg.content)}
-                        </Markdown>
-                        {user && shouldShowResponseButtons && (
-                          <div className="mt-4 flex justify-end items-center gap-2">
-                            <ResponseButtons
-                              uploadQuery={uploadQuery}
-                              index={index}
-                              feedbackStatus={feedbackStatus}
-                              setFeedbackStatus={setFeedbackStatus}
-                            />
-                            <Button
-                              variant="ghost"
-                              className="ml-2"
-                              onClick={() => handleAskAgain(index)}
-                              disabled={isAnswering}
-                            >
-                              <MdOutlineReplay size={20} />
-                            </Button>
-                            {/* "View SQL" button here */}
-                            <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost">View SQL</Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>SQL Query</DialogTitle>
-                                </DialogHeader>
-                                <div className="mt-4">
-                                  {sqlQuery ? (
-                                    <Textarea readOnly value={sqlQuery} className="w-full h-64" />
-                                  ) : (
-                                    <p>No SQL query available.</p>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
-                {/* SuggestionBlocks at the bottom */}
-                {messages.length === 0 && (
-                  <div className="mt-auto">
-                    <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
-                  </div>
-                )}
-              </div>
-
-              {/* Input Form */}
-              <form
-                className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
-                onSubmit={handleSend}
-              >
-                <Label htmlFor="message" className="sr-only">
-                  Message
-                </Label>
-                <Textarea
-                  id="message"
-                  placeholder="Type your message here..."
-                  className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                />
-                <div className="flex items-center p-3 pt-0 justify-end gap-2">
-                  <SpeechToTextButton
-                    onResult={(transcript) => {
-                      setInput(transcript);
-                    }}
-                  />
-                  <Button
-                    type="submit"
-                    className="gap-1.5 rounded-full shadow-md"
-                    disabled={isAnswering}
-                  >
-                    Ask Billy
-                    <CornerDownLeft className="size-3.5" />
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </main>
+        {loading ? (
+          <div className="flex items-center justify-center flex-1">
+          <Loader2 className="animate-spin w-12 h-12 text-gray-500" />
         </div>
+        ) : (
+          <div className="flex flex-1 h-0 overflow-hidden">
+            {/* Main content area */}
+            <main className="flex-1 flex flex-col">
+              <div className="flex flex-col flex-1 p-4 overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-4 bg-muted/50 rounded-2xl shadow-md flex flex-col">
+                  {/* Messages container */}
+                  <div className="flex-1 flex flex-col">
+                    {messages.map((msg, index) => {
+                      const isLastMessage = index === messages.length - 1;
+                      const isCompletedResponse = msg.role === "assistant" && !isAnswering;
+                      const shouldShowResponseButtons = msg.isNew && isCompletedResponse;
+  
+                      return (
+                        <div
+                          key={index}
+                          ref={isLastMessage ? messagesEndRef : null}
+                          className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm break-words"
+                          style={{ overflowWrap: "break-word", maxWidth: "95%" }}
+                        >
+                          {msg.role === "user" ? (
+                            <Badge className="bg-primary text-xs text-white my-2 rounded-full">
+                              User
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
+                              Billy
+                            </Badge>
+                          )}
+                          <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
+                          {user && shouldShowResponseButtons && (
+                            <div className="mt-4 flex justify-end items-center gap-2">
+                              <ResponseButtons
+                                uploadQuery={uploadQuery}
+                                index={index}
+                                feedbackStatus={feedbackStatus}
+                                setFeedbackStatus={setFeedbackStatus}
+                              />
+                              <Button
+                                variant="ghost"
+                                className="ml-2"
+                                onClick={() => handleAskAgain(index)}
+                                disabled={isAnswering}
+                              >
+                                <MdOutlineReplay size={20} />
+                              </Button>
+                              <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost">View SQL</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>SQL Query</DialogTitle>
+                                  </DialogHeader>
+                                  <div className="mt-4">
+                                    {sqlQuery ? (
+                                      <Textarea readOnly value={sqlQuery} className="w-full h-64" />
+                                    ) : (
+                                      <p>No SQL query available.</p>
+                                    )}
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+                  {/* SuggestionBlocks at the bottom */}
+                  {messages.length === 0 && (
+                    <div className="mt-auto">
+                      <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
+                    </div>
+                  )}
+                </div>
+  
+                {/* Input Form */}
+                <form
+                  className="relative overflow-hidden rounded-2xl bg-background focus-within:ring-1 focus-within:ring-ring shadow-md mt-2"
+                  onSubmit={handleSend}
+                >
+                  <Label htmlFor="message" className="sr-only">
+                    Message
+                  </Label>
+                  <Textarea
+                    id="message"
+                    placeholder="Type your message here..."
+                    className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0 rounded-2xl"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                  <div className="flex items-center p-3 pt-0 justify-end gap-2">
+                    <SpeechToTextButton
+                      onResult={(transcript) => {
+                        setInput(transcript);
+                      }}
+                    />
+                    <Button
+                      type="submit"
+                      className="gap-1.5 rounded-full shadow-md"
+                      disabled={isAnswering}
+                    >
+                      Ask Billy
+                      <CornerDownLeft className="size-3.5" />
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            </main>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

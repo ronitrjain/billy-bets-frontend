@@ -1,5 +1,3 @@
-// components/Navbar.tsx
-
 import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -68,30 +66,39 @@ const Navbar: React.FC = () => {
   };
 
   return (
-    <aside className="w-64 h-full bg-gray-100 flex-col p-4 hidden md:flex">
-      <Button onClick={handleNewChat} className="mb-4 w-full">
-        New Chat
-      </Button>
-      <ul className="space-y-2">
-        {chats.map((chat) => (
-          <li key={chat.id}>
-            <Button
-              variant={chat.id === currentChatId ? "outline" : "ghost"}
-              onClick={() => handleChangeChat(chat.id)}
-              className="w-full text-left truncate"
-            >
-              {chat.name}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      {/* Mobile Popover */}
+    <>
+      {/* Desktop view - sidebar */}
+      <aside className="hidden md:flex w-64 h-full bg-gray-100 flex-col p-4">
+        <Button onClick={handleNewChat} className="mb-4 w-full">
+          New Chat
+        </Button>
+        <ul className="space-y-2">
+          {chats.map((chat) => (
+            <li key={chat.id}>
+              <Button
+                variant={chat.id === currentChatId ? "outline" : "ghost"}
+                onClick={() => handleChangeChat(chat.id)}
+                className="w-full text-left truncate"
+              >
+                {chat.name}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* Mobile view - Popover for chat list */}
       <div className="md:hidden flex justify-center mt-4">
         <Popover>
           <PopoverTrigger asChild>
             <Button className="bg-black text-white">Open Chat List</Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 p-4">
+          <PopoverContent
+            className="w-64 p-4 mt-2 relative left-1/2 -translate-x-1/2"
+            side="bottom"
+            align="center"
+            sideOffset={10} // Add spacing between button and popover
+          >
             <Button onClick={handleNewChat} className="mb-4 w-full">
               New Chat
             </Button>
@@ -111,7 +118,7 @@ const Navbar: React.FC = () => {
           </PopoverContent>
         </Popover>
       </div>
-    </aside>
+    </>
   );
 };
 

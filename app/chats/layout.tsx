@@ -1,9 +1,6 @@
-// app/chats/layout.tsx
 "use client";
 
 import { Inter } from "next/font/google";
-import { useState } from "react";
-import SupabaseProvider from "@/components/SupabaseProvider";
 import Header from "@/components/Header";  // Import your Header component
 import Navbar from "@/components/Nav";  // Import your Navbar component
 import { useUser } from "@supabase/auth-helpers-react";
@@ -12,8 +9,6 @@ import Auth from "@/components/Auth"; // Import your Auth component
 const inter = Inter({ subsets: ["latin"] });
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
-  const [isSqlDialogOpen, setIsSqlDialogOpen] = useState(false);
-  const [sqlQuery, setSqlQuery] = useState("");
   const user = useUser(); // Check if the user is logged in
 
   if (!user) {
@@ -25,24 +20,24 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className={`${inter.className} flex h-full`}>
+    <div className={`${inter.className} flex flex-col h-full`}>
       {/* Chat layout for logged-in users */}
-      <div className="flex flex-col w-full h-full">
-        {/* Header component */}
-        <Header
-          sqlQuery={sqlQuery}
-          setIsSqlDialogOpen={setIsSqlDialogOpen}
-          isSqlDialogOpen={isSqlDialogOpen}
-        />
+      <Header />
 
-        {/* Below the header, we have a flex container for the navbar and main content */}
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar/Navbar */}
+      {/* Mobile Navbar will appear above the main chat screen */}
+      <div className="md:hidden">
+        <Navbar />
+      </div>
+
+      {/* Below the header, we have a flex container for the navbar (desktop) and main content */}
+      <div className="flex flex-1 h-full overflow-hidden">
+        {/* Sidebar/Navbar for desktop */}
+        <div className="hidden md:flex">
           <Navbar />
-
-          {/* Main content area */}
-          <main className="flex-1 overflow-auto">{children}</main>
         </div>
+
+        {/* Main content area */}
+        <main className="flex-1 h-full overflow-auto">{children}</main>
       </div>
     </div>
   );
