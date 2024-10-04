@@ -1,8 +1,9 @@
+// app/layout.tsx
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/react";
 import SupabaseProvider from "@/components/SupabaseProvider";
-import Navbar from "@/components/Nav";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
@@ -17,12 +18,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} flex h-100`}>
+      <body className={inter.className}>
         <SupabaseProvider>
-            {/* Main content area */}
-            <div className="flex-1 overflow-auto">
-              {children}
-            </div>
+          {children}
           <Analytics />
         </SupabaseProvider>
       </body>

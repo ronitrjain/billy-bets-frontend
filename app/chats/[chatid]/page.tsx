@@ -1,11 +1,13 @@
+// app/chats/[chatid]/page.tsx
+
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import { io } from "socket.io-client";
 import Markdown from "react-markdown";
 import { CornerDownLeft } from "lucide-react";
-import { useRouter, useParams } from "next/navigation";
-import Navbar from "@/components/Nav";
+import { useRouter, useParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   useSession,
   useSupabaseClient,
@@ -23,17 +25,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import SuggestionBlocks from "@/components/SuggestionBlocks";
 import Auth from "@/components/Auth";
 import ProfileAvatar from "@/components/ProfileAvatar";
 import ResponseButtons from "@/components/ResponseButtons";
 import { MdOutlineReplay } from "react-icons/md";
 import SpeechToTextButton from "@/components/SpeechToText";
+import { v4 as uuidv4 } from "uuid";
 
 interface Message {
   role: string;
   content: string;
-  isNew?: boolean; // Add this optional property
+  isNew?: boolean;
+}
+
+interface ChatSession {
+  id: string;
+  name: string;
+  updated_at: string;
 }
 
 function addNewlinesToMarkdown(markdown: string): string {
@@ -71,6 +85,7 @@ export default function ChatPage() {
   const session = useSession();
   const supabase = useSupabaseClient();
   const user = useUser();
+  const pathname = usePathname();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
@@ -82,6 +97,64 @@ export default function ChatPage() {
   const [sqlQuery, setSqlQuery] = useState("");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
+  // State for chats
+  const [chats, setChats] = useState<ChatSession[]>([]);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+
+  // Fetch chats when the user is available
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchChats = async () => {
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/retrieve-all-chats`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ user_id: user.id }),
+          }
+        );
+
+        if (!response.ok) {
+          console.error("Failed to fetch chats");
+          return;
+        }
+
+        const data = await response.json();
+
+        const parsedChats = data.chats.map((chat: any) => ({
+          id: chat.id,
+          name: chat.name || "Untitled Chat",
+          updated_at: chat.updated_at || chat.created_at,
+        }));
+
+        parsedChats.sort(
+          (a: ChatSession, b: ChatSession) =>
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        );
+
+        const recentChats = parsedChats.slice(0, 10);
+
+        setChats(recentChats);
+      } catch (error) {
+        console.error("Error fetching chats:", error);
+      }
+    };
+
+    fetchChats();
+  }, [user]);
+
+  // Update currentChatId when the pathname changes
+  useEffect(() => {
+    const pathSegments = pathname?.split("/");
+    const chatIdFromUrl = pathSegments && pathSegments[2];
+    setCurrentChatId(chatIdFromUrl || null);
+  }, [pathname]);
+
+  // Fetch chat messages
   useEffect(() => {
     if (!user || !chatId) return;
 
@@ -120,7 +193,6 @@ export default function ChatPage() {
         let messagesArray: Message[] = [];
         try {
           messagesArray = JSON.parse(data.chat || "[]");
-          // Mark all loaded messages as old
           messagesArray = messagesArray.map((msg) => ({
             ...msg,
             isNew: false,
@@ -141,7 +213,6 @@ export default function ChatPage() {
 
   const addMessage = (message: Message) => {
     if (!message.content.trim()) return;
-    // Mark new messages as new
     setMessages((prevMessages) => [
       ...prevMessages,
       { ...message, isNew: true },
@@ -156,7 +227,6 @@ export default function ChatPage() {
       }
 
       if (done) {
-        // Mark the assistant's response as new
         updatedMessages[updatedMessages.length - 1].isNew = true;
         postChat(updatedMessages, sqlQuery);
       }
@@ -334,97 +404,102 @@ export default function ChatPage() {
     }
   };
 
+  const handleNewChat = () => {
+    const newChatId = uuidv4();
+    router.push(`/chats/${newChatId}`);
+  };
+
+  const handleChangeChat = (chatId: string) => {
+    router.push(`/chats/${chatId}`);
+  };
+
   if (!session) {
     return <Auth />;
   }
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col w-full h-full h-100">
-        {/* Header at the top */}
-        <header className="sticky shadow-sm top-0 z-10 flex h-[70px] items-center gap-2 bg-background px-4 py-2 justify-between">
-          <h1 className="text-xl font-semibold">Ask Billy</h1>
-          <div className="flex items-end gap-2">
-            <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost">View SQL</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>SQL Query</DialogTitle>
-                </DialogHeader>
-                <div className="mt-4">
-                  {sqlQuery ? (
-                    <Textarea readOnly value={sqlQuery} className="w-full h-64" />
-                  ) : (
-                    <p>No SQL query available.</p>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-          <ProfileAvatar />
-        </header>
-
+      <div className="flex flex-col w-full h-full">
         {/* Content below header */}
         <div className="flex flex-1 h-0 overflow-hidden">
-          {/* Navbar on the left */}
-          <Navbar />
-
           {/* Main content area */}
-        <main className="flex-1 flex flex-col">
-          <div className="flex flex-col flex-1 p-4 overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-4 bg-muted/50 rounded-2xl shadow-md">
-                {messages.map((msg, index) => {
-                  const isLastMessage = index === messages.length - 1;
-                  const isCompletedResponse =
-                    msg.role === "assistant" && !isAnswering;
-                  const shouldShowResponseButtons = msg.isNew && isCompletedResponse;
+          <main className="flex-1 flex flex-col">
+            <div className="flex flex-col flex-1 p-4 overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 bg-muted/50 rounded-2xl shadow-md flex flex-col">
+                {/* Messages container */}
+                <div className="flex-1 flex flex-col">
+                  {messages.map((msg, index) => {
+                    const isLastMessage = index === messages.length - 1;
+                    const isCompletedResponse = msg.role === "assistant" && !isAnswering;
+                    const shouldShowResponseButtons = msg.isNew && isCompletedResponse;
 
-                  return (
-                    <div
-                      key={index}
-                      ref={isLastMessage ? messagesEndRef : null}
-                      className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm break-words"
-                      style={{ overflowWrap: "break-word", maxWidth: "95%" }}
-                    >
-                      {msg.role === "user" ? (
-                        <Badge className="bg-primary text-xs text-white my-2 rounded-full">
-                          User
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
-                          Billy
-                        </Badge>
-                      )}
-                      <Markdown>{addNewlinesToMarkdown(msg.content)}</Markdown>
-                      {user && shouldShowResponseButtons && (
-                        <div className="mt-4 flex justify-end items-center gap-2">
-                          <ResponseButtons
-                            uploadQuery={uploadQuery}
-                            index={index}
-                            feedbackStatus={feedbackStatus}
-                            setFeedbackStatus={setFeedbackStatus}
-                          />
-                          <Button
-                            variant="ghost"
-                            className="ml-2"
-                            onClick={() => handleAskAgain(index)}
-                            disabled={isAnswering}
-                          >
-                            <MdOutlineReplay size={20} />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
+                    return (
+                      <div
+                        key={index}
+                        ref={isLastMessage ? messagesEndRef : null}
+                        className="my-2 p-3 rounded-2xl shadow-md bg-white text-black text-sm break-words"
+                        style={{ overflowWrap: "break-word", maxWidth: "95%" }}
+                      >
+                        {msg.role === "user" ? (
+                          <Badge className="bg-primary text-xs text-white my-2 rounded-full">
+                            User
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gray-900 text-xs my-2 text-white rounded-full">
+                            Billy
+                          </Badge>
+                        )}
+                        <Markdown>
+                          {addNewlinesToMarkdown(msg.content)}
+                        </Markdown>
+                        {user && shouldShowResponseButtons && (
+                          <div className="mt-4 flex justify-end items-center gap-2">
+                            <ResponseButtons
+                              uploadQuery={uploadQuery}
+                              index={index}
+                              feedbackStatus={feedbackStatus}
+                              setFeedbackStatus={setFeedbackStatus}
+                            />
+                            <Button
+                              variant="ghost"
+                              className="ml-2"
+                              onClick={() => handleAskAgain(index)}
+                              disabled={isAnswering}
+                            >
+                              <MdOutlineReplay size={20} />
+                            </Button>
+                            {/* "View SQL" button here */}
+                            <Dialog open={isSqlDialogOpen} onOpenChange={setIsSqlDialogOpen}>
+                              <DialogTrigger asChild>
+                                <Button variant="ghost">View SQL</Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>SQL Query</DialogTitle>
+                                </DialogHeader>
+                                <div className="mt-4">
+                                  {sqlQuery ? (
+                                    <Textarea readOnly value={sqlQuery} className="w-full h-64" />
+                                  ) : (
+                                    <p>No SQL query available.</p>
+                                  )}
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+                {/* SuggestionBlocks at the bottom */}
+                {messages.length === 0 && (
+                  <div className="mt-auto">
+                    <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
+                  </div>
+                )}
               </div>
-
-              {messages.length === 0 && (
-                <SuggestionBlocks onSuggestionClick={handleSuggestionClick} />
-              )}
 
               {/* Input Form */}
               <form
