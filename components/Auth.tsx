@@ -61,7 +61,7 @@ export default function Auth() {
       } else {
         // Optionally, you can add a delay to show the loading spinner
         setTimeout(() => {
-          router.push('/'); // Redirect to home or /chat after successful login
+          router.push('/chats/${newChatId}'); // Redirect to home or /chat after successful login
         }, 2000); // 2-second delay
       }
     } catch (error: any) {
