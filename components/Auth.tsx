@@ -77,8 +77,8 @@ export default function Auth() {
     e.preventDefault()
     console.log("hey")
     try {
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/confirm`,
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email
       });
       if (error) throw error;
       alert('Password reset email sent. Check your inbox.')
@@ -88,6 +88,8 @@ export default function Auth() {
       alert(error.message);
     }
   }
+
+
 
   const renderForm = () => {
     if (isForgotPassword) {
