@@ -119,34 +119,40 @@ export default function ChatPage() {
             body: JSON.stringify({ user_id: user.id }),
           }
         );
-
+    
         if (!response.ok) {
           console.error("Failed to fetch chats");
+          setLoading(false); // Stop loading even if fetch fails
           return;
         }
-
+    
         const data = await response.json();
-
-        const parsedChats = data.chats.map((chat: any) => ({
-          id: chat.id,
-          name: chat.name || "Untitled Chat",
-          updated_at: chat.updated_at || chat.created_at,
-        }));
-
-        parsedChats.sort(
-          (a: ChatSession, b: ChatSession) =>
-            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        );
-
+    
+        // Check if there are any chats, otherwise set an empty array
+        const parsedChats = data.chats?.length
+          ? data.chats.map((chat: any) => ({
+              id: chat.id,
+              name: chat.name || "Untitled Chat",
+              updated_at: chat.updated_at || chat.created_at,
+            }))
+          : [];
+    
+        // Sort chats by the `updated_at` field if there are any
+        if (parsedChats.length > 0) {
+          parsedChats.sort(
+            (a: ChatSession, b: ChatSession) =>
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+        }
+    
         const recentChats = parsedChats.slice(0, 10);
-
+    
+        // Update state with the recent chats (or empty array) and stop loading
         setChats(recentChats);
-        setTimeout(() => {
-          setLoading(false);
-        }, 2);
+        setLoading(false); // Ensure loading is stopped
       } catch (error) {
         console.error("Error fetching chats:", error);
-        setLoading(false);
+        setLoading(false); // Stop loading even on error
       }
     };
 
@@ -242,6 +248,7 @@ export default function ChatPage() {
   };
 
   const postChat = async (messages: Message[], sqlQuery: string) => {
+    console.log("User", user)
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/post-chats`,

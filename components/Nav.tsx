@@ -41,10 +41,24 @@ const Navbar: React.FC = () => {
         const data = await response.json();
 
         // Sort chats by `created_at` in descending order to get the latest chats first
-        const sortedChats = data.chats.sort(
-          (a: ChatSession, b: ChatSession) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        );
+        let sortedChats = data.chats?.length
+          ? data.chats.sort(
+              (a: ChatSession, b: ChatSession) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )
+          : [];
+
+        // If no chats exist, create a new "Untitled Chat"
+        if (sortedChats.length === 0) {
+          const newChatId = await createUntitledChat();
+          sortedChats = [
+            {
+              id: newChatId,
+              name: "Untitled Chat",
+              created_at: new Date().toISOString(),
+            },
+          ];
+        }
 
         // Limit to the last 10 created chats
         setChats(sortedChats.slice(0, 10));
@@ -53,8 +67,58 @@ const Navbar: React.FC = () => {
       }
     };
 
+    const createUntitledChat = async () => {
+      const newChatId = uuidv4(); // Generate a unique ID for the new chat
+
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/post-chats`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: user?.id,
+            messages: JSON.stringify([]), // No messages yet
+            name: "Untitled Chat",
+            sql_query: "", // No SQL query yet
+            chat_id: newChatId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to create chat:", errorData.error);
+          throw new Error("Failed to create chat");
+        }
+
+        console.log("New Untitled Chat created successfully");
+        return newChatId;
+      } catch (error) {
+        console.error("Error creating new chat:", error);
+        throw error; // Rethrow the error to ensure proper error handling
+      }
+    };
+
     fetchChats();
   }, [user]);
+
+  const handleNewChat = async () => {
+    const newChatId = uuidv4();
+
+    // Update UI immediately with new chat
+    const newChat = {
+      id: newChatId,
+      name: "Untitled Chat",
+      created_at: new Date().toISOString(),
+    };
+    setChats((prevChats) => [newChat, ...prevChats].slice(0, 10)); // Limit to the last 10 chats
+
+    // Post the new chat to the server
+    await postChat(newChatId);
+
+    // Navigate to the new chat
+    router.push(`/chats/${newChatId}`);
+  };
 
   const postChat = async (newChatId: string) => {
     try {
@@ -80,24 +144,6 @@ const Navbar: React.FC = () => {
     } catch (error) {
       console.error("Failed to post chat:", error);
     }
-  };
-
-  const handleNewChat = async () => {
-    const newChatId = uuidv4();
-    
-    // Update UI immediately with new chat
-    const newChat = {
-      id: newChatId,
-      name: "Untitled Chat",
-      created_at: new Date().toISOString(),
-    };
-    setChats((prevChats) => [newChat, ...prevChats].slice(0, 10)); // Limit to the last 10 chats
-
-    // Post the new chat to the server
-    await postChat(newChatId);
-
-    // Navigate to the new chat
-    router.push(`/chats/${newChatId}`);
   };
 
   const handleChangeChat = (chatId: string) => {

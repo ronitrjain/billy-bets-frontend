@@ -55,19 +55,21 @@ export default function Auth() {
     try {
       setIsLoading(true); // Start loading
       const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
       if (error) {
-        setIsLoading(false); // Stop loading on error
         alert(error.message);
       } else {
-        // Optionally, you can add a delay to show the loading spinner
-        setTimeout(() => {
-          router.push('/chats/${newChatId}'); // Redirect to home or /chat after successful login
-        }, 2000); // 2-second delay
+        // Ensure the isLoading is reset before redirecting
+        setIsLoading(false);
+  
+        // Redirect to home or /chat after successful login
+        router.push('/');
       }
     } catch (error: any) {
-      setIsLoading(false); // Stop loading on error
       console.error('Error during sign-in:', error);
       alert(error.message);
+    } finally {
+      setIsLoading(false); // Stop loading even if there's an error
     }
   };
 
