@@ -13,14 +13,22 @@ interface ChatSession {
 
 const Navbar: React.FC = () => {
   const router = useRouter();
-  const user = useUser();
+  const user = useUser(); // Fetch the authenticated user from Supabase
   const [chats, setChats] = useState<ChatSession[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    console.log("useEffect triggered");
+
+    if (!user) {
+      console.log("No user found");
+      return;
+    }
+
+    console.log("User found:", user.id);
 
     const fetchChats = async () => {
+      console.log("Starting fetchChats for user:", user.id);
       try {
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/retrieve-all-chats`,
@@ -33,14 +41,17 @@ const Navbar: React.FC = () => {
           }
         );
 
+        console.log("Response received from API");
+
         if (!response.ok) {
-          console.error("Failed to fetch chats");
+          console.error("Failed to fetch chats, response not ok");
           return;
         }
 
         const data = await response.json();
+        console.log("Fetched chats data:", data);
 
-        // Sort chats by `created_at` in descending order to get the latest chats first
+        // Sort chats by `created_at` in descending order
         let sortedChats = data.chats?.length
           ? data.chats.sort(
               (a: ChatSession, b: ChatSession) =>
@@ -48,7 +59,9 @@ const Navbar: React.FC = () => {
             )
           : [];
 
-        // If no chats exist, create a new "Untitled Chat"
+        console.log("Sorted chats:", sortedChats);
+
+        // Only create an "Untitled Chat" if there are no chats at all
         if (sortedChats.length === 0) {
           const newChatId = await createUntitledChat();
           sortedChats = [
@@ -58,12 +71,13 @@ const Navbar: React.FC = () => {
               created_at: new Date().toISOString(),
             },
           ];
+          console.log("Created 'Untitled Chat' since no chats exist.");
         }
 
-        // Limit to the last 10 created chats
-        setChats(sortedChats.slice(0, 10));
+        // Update state with chats
+        setChats(sortedChats.slice(0, 10)); // Limit to 10 chats, if more
       } catch (error) {
-        console.error("Error fetching chats:", error);
+        console.error("Error in fetchChats:", error);
       }
     };
 
@@ -71,6 +85,8 @@ const Navbar: React.FC = () => {
       const newChatId = uuidv4(); // Generate a unique ID for the new chat
 
       try {
+        console.log("Creating a new untitled chat for user:", user.id);
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/post-chats`, {
           method: "POST",
           headers: {
@@ -91,7 +107,7 @@ const Navbar: React.FC = () => {
           throw new Error("Failed to create chat");
         }
 
-        console.log("New Untitled Chat created successfully");
+        console.log("New Untitled Chat created successfully with ID:", newChatId);
         return newChatId;
       } catch (error) {
         console.error("Error creating new chat:", error);
@@ -122,6 +138,8 @@ const Navbar: React.FC = () => {
 
   const postChat = async (newChatId: string) => {
     try {
+      console.log("Posting new chat with ID:", newChatId);
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/post-chats`, {
         method: "POST",
         headers: {
@@ -140,7 +158,7 @@ const Navbar: React.FC = () => {
         console.error("Failed to post chat:", errorData.error);
         throw new Error("Failed to post chat");
       }
-      console.log("Chat posted successfully");
+      console.log("Chat posted successfully with ID:", newChatId);
     } catch (error) {
       console.error("Failed to post chat:", error);
     }
@@ -150,6 +168,8 @@ const Navbar: React.FC = () => {
     setCurrentChatId(chatId);
     router.push(`/chats/${chatId}`);
   };
+
+  console.log("Current chats state:", chats);
 
   return (
     <>

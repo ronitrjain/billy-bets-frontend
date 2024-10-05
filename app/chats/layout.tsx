@@ -19,10 +19,12 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
     );
   }
 
+  
   return (
     <div className={`${inter.className} flex flex-col h-full`}>
       {/* Chat layout for logged-in users */}
       <Header />
+      
 
       {/* Mobile Navbar will appear above the main chat screen */}
       <div className="md:hidden">
