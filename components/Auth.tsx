@@ -75,7 +75,6 @@ export default function Auth() {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("hey")
     try {
       const { data, error } = await supabase.auth.signInWithOtp({
         email

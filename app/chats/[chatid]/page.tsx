@@ -92,9 +92,9 @@ export default function ChatPage() {
   const [isAnswering, setIsAnswering] = useState(false);
   const [isSqlDialogOpen, setIsSqlDialogOpen] = useState(false);
   const [userName, setUserName] = useState("");
-  const [feedbackStatus, setFeedbackStatus] = useState<{
-    [key: number]: string | null;
-  }>({});
+  const [feedbackStatus, setFeedbackStatus] = useState<
+  { [key: number]: string | null } | undefined
+>(undefined);
   const [sqlQuery, setSqlQuery] = useState("");
   const [loading, setLoading] = useState(true)
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
@@ -429,7 +429,7 @@ export default function ChatPage() {
   if (!session) {
     return <Auth />;
   }
-
+  console.log(chats)
   return (
     <TooltipProvider>
       <div className="flex flex-col w-full h-full">
