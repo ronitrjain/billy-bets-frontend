@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,12 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ResponseButtonsProps {
   uploadQuery: (correct: boolean, index: number) => Promise<boolean>;
   index: number;
-  feedbackStatus: { [key: number]: string | null };
-  setFeedbackStatus: React.Dispatch<React.SetStateAction<{ [key: number]: string | null }>>;
+  feedbackStatus: { [key: number]: string | null } | undefined;
+  setFeedbackStatus: React.Dispatch<React.SetStateAction<{ [key: number]: string | null } | undefined>>;
 }
 
 const ResponseButtons: React.FC<ResponseButtonsProps> = ({ uploadQuery, index, feedbackStatus, setFeedbackStatus }) => {
-  const responseStatus = feedbackStatus[index] || null;
+  const responseStatus = feedbackStatus?.[index] ?? null;
   const [isLoading, setIsLoading] = useState(false);
 
   const handleResponse = async (isApproved: boolean) => {
@@ -19,21 +20,21 @@ const ResponseButtons: React.FC<ResponseButtonsProps> = ({ uploadQuery, index, f
     const newStatus = isApproved ? 'approved' : 'disapproved';
     const success = await uploadQuery(isApproved, index);
     if (success) {
-      setFeedbackStatus(prev => ({ ...prev, [index]: newStatus }));
+      setFeedbackStatus((prev) => ({ ...prev, [index]: newStatus }));
     }
     setIsLoading(false);
   };
 
   return (
-    <div className="flex items-center">
+    <div className="flex flex-col items-start w-full space-y-2">
       <AnimatePresence>
         {responseStatus && (
           <motion.span
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.3 }}
-            className={`mr-2 ${responseStatus === 'approved' ? 'text-green-500' : 'text-red-500'}`}
+            className={`text-sm ${responseStatus === 'approved' ? 'text-green-500' : 'text-red-500'}`}
           >
             {responseStatus === 'approved'
               ? 'Response saved successfully'
@@ -41,21 +42,30 @@ const ResponseButtons: React.FC<ResponseButtonsProps> = ({ uploadQuery, index, f
           </motion.span>
         )}
       </AnimatePresence>
-
-      <Button
-        onClick={() => handleResponse(true)}
-        className={`mr-2 rounded-full ${responseStatus === 'approved' ? 'bg-green-500 text-white' : 'text-black bg-white hover:bg-gray-100'}`}
-        disabled={isLoading || responseStatus !== null}
-      >
-        {isLoading ? 'Saving...' : (responseStatus === 'approved' ? 'Approved' : 'Approve')}
-      </Button>
-      <Button
-        onClick={() => handleResponse(false)}
-        className={`mr-2 rounded-full ${responseStatus === 'disapproved' ? 'bg-red-500 text-white' : 'text-red-500 bg-white hover:bg-gray-100'}`}
-        disabled={isLoading || responseStatus !== null}
-      >
-        {isLoading ? 'Saving...' : (responseStatus === 'disapproved' ? 'Disapproved' : 'Disapprove')}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={() => handleResponse(true)}
+          className={`rounded-full ${
+            responseStatus === 'approved'
+              ? 'bg-green-500 text-white'
+              : 'text-black bg-white hover:bg-gray-100'
+          }`}
+          disabled={isLoading || responseStatus !== null}
+        >
+          {isLoading ? 'Saving...' : responseStatus === 'approved' ? 'Approved' : 'Approve'}
+        </Button>
+        <Button
+          onClick={() => handleResponse(false)}
+          className={`rounded-full ${
+            responseStatus === 'disapproved'
+              ? 'bg-red-500 text-white'
+              : 'text-red-500 bg-white hover:bg-gray-100'
+          }`}
+          disabled={isLoading || responseStatus !== null}
+        >
+          {isLoading ? 'Saving...' : responseStatus === 'disapproved' ? 'Disapproved' : 'Disapprove'}
+        </Button>
+      </div>
     </div>
   );
 };

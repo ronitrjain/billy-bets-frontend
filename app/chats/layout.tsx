@@ -18,7 +18,6 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
       </div>
     );
   }
-
   
   return (
     <div className={`${inter.className} flex flex-col h-full`}>
