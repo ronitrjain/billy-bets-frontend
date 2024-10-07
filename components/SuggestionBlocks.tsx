@@ -13,16 +13,16 @@ export default function SuggestionBlocks({
     {
       title: "Tua's Injury",
       description:
-        "What are the key stats from this season I should consider before betting Cowboys vs. Steelers?",
+        "What are the key stats from this season I should consider before betting Saints vs. Chiefs?",
     },
     {
       title: "Props for Week 3",
-      description: "How has Jayden Reed performed in games this season when Jordan Love is starting at QB?",
+      description: "How has Travis Kelce performed in games when the Chiefs #1 and #2 WRs are injured?",
     },
     {
       title: "Ravens vs. Cowboys",
       description:
-        "What are the most common outcomes when the Ravens play at the Bengals, and how should that influence my bet?",
+        "What are some interesting props for the saints vs chiefs game?",
     },
   ];
 
