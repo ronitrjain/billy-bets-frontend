@@ -22,12 +22,14 @@ export default function Auth() {
   const [lastName, setLastName] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [isForgotPassword, setIsForgotPassword] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false); // New state to manage form submission
   const supabase = useSupabaseClient()
   const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsSubmitting(true); // Disable button
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -45,34 +47,42 @@ export default function Auth() {
     } catch (error: any) {
       console.error('Full error object:', error);
       alert(error.message);
+    } finally {
+      setIsSubmitting(false); // Re-enable button
     }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true); // Disable button
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       alert(error.message);
     } else {
       router.push('/'); // Redirect to /chat after successful login
     }
+    setIsSubmitting(false); // Re-enable button
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("hey")
+    e.preventDefault();
+    if (isSubmitting) return; // Prevent multiple submissions
+
+    setIsSubmitting(true); // Disable button
     try {
       const { data, error } = await supabase.auth.signInWithOtp({
-        email
+        email,
       });
       if (error) throw error;
-      alert('Password reset email sent. Check your inbox.')
-      setIsForgotPassword(false)
+      alert('Password reset email sent. Check your inbox.');
+      setIsForgotPassword(false);
     } catch (error: any) {
       console.error('Full error object:', error);
       alert(error.message);
+    } finally {
+      setIsSubmitting(false); // Re-enable button
     }
-  }
+  };
 
   const renderForm = () => {
     if (isForgotPassword) {
@@ -90,8 +100,8 @@ export default function Auth() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Reset Password
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Sending...' : 'Reset Password'}
             </Button>
           </div>
         </form>
@@ -153,8 +163,8 @@ export default function Auth() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full">
-            {isLogin ? 'Login' : 'Create an account'}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Processing...' : (isLogin ? 'Login' : 'Create an account')}
           </Button>
         </div>
       </form>
