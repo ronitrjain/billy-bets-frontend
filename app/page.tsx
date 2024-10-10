@@ -197,6 +197,8 @@ export default function Home() {
     fetchUserData();
   }, [session]);
 
+
+
   const handleSend = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (input.trim()) {
@@ -361,6 +363,7 @@ export default function Home() {
                     </div>
                   );
                 })}
+                <div ref={messagesEndRef} />
               </div>
 
               <form
