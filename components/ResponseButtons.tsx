@@ -8,7 +8,7 @@ interface ResponseButtonsProps {
   uploadQuery: (correct: boolean, index: number) => Promise<boolean>;
   index: number;
   feedbackStatus: { [key: number]: string | null } | undefined;
-  setFeedbackStatus: React.Dispatch<React.SetStateAction<{ [key: number]: string | null } | undefined>>;
+  setFeedbackStatus: React.Dispatch<React.SetStateAction<{ [key: number]: string | null }>>;
 }
 
 const ResponseButtons: React.FC<ResponseButtonsProps> = ({ uploadQuery, index, feedbackStatus, setFeedbackStatus }) => {
